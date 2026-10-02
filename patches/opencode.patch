@@ -1131,7 +1131,7 @@ index d4145e2..814b85d 100644
              <Prompt ref={bind} right={<pluginRuntime.Slot name="home_prompt_right" />} placeholders={placeholder} />
            </pluginRuntime.Slot>
 diff --git a/packages/tui/src/routes/session/index.tsx b/packages/tui/src/routes/session/index.tsx
-index 2b54f21..a77d3dc 100644
+index 2b54f21..ae4b79a 100644
 --- a/packages/tui/src/routes/session/index.tsx
 +++ b/packages/tui/src/routes/session/index.tsx
 @@ -73,6 +73,8 @@ import { setPreLayoutSiblingMargin } from "../../util/layout"
@@ -1220,7 +1220,15 @@ index 2b54f21..a77d3dc 100644
    const providers = createMemo(() => Model.index(sync.data.provider))
  
    const scrollAcceleration = createMemo(() => getScrollAcceleration(tuiConfig))
-@@ -707,8 +747,8 @@ export function Session() {
+@@ -673,6 +713,7 @@ export function Session() {
+       title: sidebarVisible() ? "Hide sidebar" : "Show sidebar",
+       value: "session.sidebar.toggle",
+       category: "Session",
++      slash: { name: "sidebar" },
+       run: () => {
+         batch(() => {
+           const isVisible = sidebarVisible()
+@@ -707,8 +748,8 @@ export function Session() {
      {
        title: (() => {
          const next = nextThinkingMode(thinkingMode())
@@ -1231,7 +1239,7 @@ index 2b54f21..a77d3dc 100644
        })(),
        value: "session.toggle.thinking",
        category: "Session",
-@@ -725,11 +765,34 @@ export function Session() {
+@@ -725,11 +766,34 @@ export function Session() {
        title: showDetails() ? "Hide tool details" : "Show tool details",
        value: "session.toggle.actions",
        category: "Session",
@@ -1266,7 +1274,7 @@ index 2b54f21..a77d3dc 100644
      {
        title: "Toggle session scrollbar",
        value: "session.toggle.scrollbar",
-@@ -1164,6 +1227,9 @@ export function Session() {
+@@ -1164,6 +1228,9 @@ export function Session() {
            sessionID: route.sessionID,
            conceal,
            thinkingMode,
@@ -1276,7 +1284,7 @@ index 2b54f21..a77d3dc 100644
            showThinking,
            showTimestamps,
            showDetails,
-@@ -1175,165 +1241,178 @@ export function Session() {
+@@ -1175,165 +1242,178 @@ export function Session() {
          }}
        >
          <box flexDirection="row" flexGrow={1} minHeight={0}>
@@ -1608,7 +1616,7 @@ index 2b54f21..a77d3dc 100644
            </box>
            <Show when={sidebarVisible()}>
              <Switch>
-@@ -1385,6 +1464,7 @@ function UserMessage(props: {
+@@ -1385,6 +1465,7 @@ function UserMessage(props: {
    const { theme } = useTheme()
    const [hover, setHover] = createSignal(false)
    const queued = createMemo(() => props.pending !== undefined && props.index > props.pending)
@@ -1616,7 +1624,7 @@ index 2b54f21..a77d3dc 100644
    const color = createMemo(() => local.agent.color(props.message.agent))
    const queuedFg = createMemo(() => selectedForeground(theme, color()))
    const metadataVisible = createMemo(() => queued() || ctx.showTimestamps())
-@@ -1446,8 +1526,15 @@ function UserMessage(props: {
+@@ -1446,8 +1527,15 @@ function UserMessage(props: {
                  </Show>
                }
              >
@@ -1633,7 +1641,7 @@ index 2b54f21..a77d3dc 100644
                </text>
              </Show>
            </box>
-@@ -1486,7 +1573,8 @@ function AssistantMessage(props: { message: AssistantMessage; parts: Part[]; las
+@@ -1486,7 +1574,8 @@ function AssistantMessage(props: { message: AssistantMessage; parts: Part[]; las
      return props.message.time.completed - user.time.created
    })
  
@@ -1643,7 +1651,7 @@ index 2b54f21..a77d3dc 100644
    const backgroundShortcut = useCommandShortcut("session.background")
  
    return (
-@@ -1495,7 +1583,7 @@ function AssistantMessage(props: { message: AssistantMessage; parts: Part[]; las
+@@ -1495,7 +1584,7 @@ function AssistantMessage(props: { message: AssistantMessage; parts: Part[]; las
          {(part, index) => {
            const component = createMemo(() => PART_MAPPING[part.type as keyof typeof PART_MAPPING])
            return (
@@ -1652,7 +1660,7 @@ index 2b54f21..a77d3dc 100644
                <Dynamic
                  last={index() === props.parts.length - 1}
                  component={component()}
-@@ -1508,9 +1596,8 @@ function AssistantMessage(props: { message: AssistantMessage; parts: Part[]; las
+@@ -1508,9 +1597,8 @@ function AssistantMessage(props: { message: AssistantMessage; parts: Part[]; las
        </For>
        <Show when={props.parts.some((x) => x.type === "tool" && x.tool === "task")}>
          <box paddingTop={1} paddingLeft={3}>
@@ -1664,7 +1672,7 @@ index 2b54f21..a77d3dc 100644
              <Show
                when={
                  sync.data.capabilities.experimentalBackgroundSubagents &&
-@@ -1708,10 +1795,14 @@ function TextPart(props: { last: boolean; part: TextPart; message: AssistantMess
+@@ -1708,10 +1796,14 @@ function TextPart(props: { last: boolean; part: TextPart; message: AssistantMess
  
  function ToolPart(props: { last: boolean; part: ToolPart; message: AssistantMessage }) {
    const ctx = use()
@@ -1679,7 +1687,7 @@ index 2b54f21..a77d3dc 100644
      if (ctx.showDetails()) return false
      if (props.part.state.status !== "completed") return false
      return true
-@@ -1737,53 +1828,68 @@ function ToolPart(props: { last: boolean; part: ToolPart; message: AssistantMess
+@@ -1737,53 +1829,68 @@ function ToolPart(props: { last: boolean; part: ToolPart; message: AssistantMess
  
    return (
      <Show when={!shouldHide()}>
@@ -2415,10 +2423,10 @@ index 0000000..b65fa27
 +})
 diff --git a/packages/tui/test/fixture/pivo-render-check.tsx b/packages/tui/test/fixture/pivo-render-check.tsx
 new file mode 100644
-index 0000000..46d086c
+index 0000000..f138d9a
 --- /dev/null
 +++ b/packages/tui/test/fixture/pivo-render-check.tsx
-@@ -0,0 +1,450 @@
+@@ -0,0 +1,463 @@
 +import { expect, mock } from "bun:test"
 +import type { TuiPluginApi } from "@opencode-ai/plugin/tui"
 +import type { ToolPart } from "@opencode-ai/sdk/v2"
@@ -2847,8 +2855,21 @@ index 0000000..46d086c
 +    await wait((text) => text.includes("Завершено · 1:02"))
 +    await Bun.sleep(1100)
 +    expect(await frame()).toContain("Завершено · 1:02")
++    const toggleSidebar = async (visible: boolean) => {
++      api!.keymap.dispatchCommand("prompt.clear")
++      await setup.mockInput.typeText("/sidebar")
++      setup.mockInput.pressEnter()
++      await wait((text) => text.includes("Время агента") === visible)
++      assertInputVisible()
++    }
++    await toggleSidebar(false)
++    await toggleSidebar(true)
 +    setup.resize(100, 40)
 +    await setup.renderOnce()
++    await toggleSidebar(false)
++    await toggleSidebar(true)
++    await toggleSidebar(false)
++    expect(launches).toHaveLength(1)
 +    api!.keymap.dispatchCommand("session.new")
 +    await wait(() => Boolean(setup.renderer.root.findDescendantById("pivo-home-input")))
 +    const homeInput = setup.renderer.root.findDescendantById("pivo-home-input")!

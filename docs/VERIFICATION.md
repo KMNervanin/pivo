@@ -1,4 +1,20 @@
-# Проверка 1.18.34-pivo.5
+# Проверки Pivo
+
+## 1.18.34-pivo.6 — 03.10.2026
+
+- `/sidebar` зарегистрирован на существующем `session.sidebar.toggle`, без изменения
+  механики layout или отдельного model skill.
+- Render-fixture вводит именно `/sidebar` через поле ввода: hide/show на 160 колонках
+  и hide/show/hide на 100 колонках. Проверяется видимость sidebar и границы ввода;
+  команда не создаёт дополнительного запроса к модели.
+- TUI typecheck и suite: **209 pass, 1 skip, 0 fail**, 8 snapshots.
+- `docs/COMMANDS.md` содержит все 86 обнаруженных non-hidden command registrations
+  проверенных app/session/prompt/plugin/viewer модулей; пропущенных ID при AST-сверке нет.
+  Это число включает контекстные действия diff viewer, а не 86 одновременных пунктов `Ctrl+P`.
+  В справочнике отдельно указаны aliases, условные команды, hidden keyboard actions,
+  `/init`, `/review`, встроенный skill и расширяемый список пользовательских skills.
+
+## 1.18.34-pivo.5
 
 macOS arm64, 2026-10-02/03. Все числа ниже относятся к этому кандидату.
 
