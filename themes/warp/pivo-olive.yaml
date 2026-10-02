@@ -1,0 +1,25 @@
+name: Pivo Olive
+accent: '#c3b571'
+cursor: '#d8ca89'
+background: '#24251f'
+foreground: '#e0dfd0'
+details: darker
+terminal_colors:
+  normal:
+    black: '#24251f'
+    red: '#bc897b'
+    green: '#a5ad83'
+    yellow: '#c3b571'
+    blue: '#aba887'
+    magenta: '#aaa09c'
+    cyan: '#a1b0a0'
+    white: '#cbcbbb'
+  bright:
+    black: '#767a67'
+    red: '#d0a092'
+    green: '#bdc298'
+    yellow: '#d8ca89'
+    blue: '#c2ba98'
+    magenta: '#beb2aa'
+    cyan: '#b7c3ac'
+    white: '#eeeada'

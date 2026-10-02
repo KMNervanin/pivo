@@ -1,0 +1,25 @@
+name: Pivo Cocoa
+accent: '#c6a582'
+cursor: '#dcc09c'
+background: '#29231f'
+foreground: '#e6dcd0'
+details: darker
+terminal_colors:
+  normal:
+    black: '#29231f'
+    red: '#ba8277'
+    green: '#9da38a'
+    yellow: '#c8ad80'
+    blue: '#ad9a85'
+    magenta: '#ac969f'
+    cyan: '#a0aba0'
+    white: '#cec2b3'
+  bright:
+    black: '#7c7065'
+    red: '#d09c91'
+    green: '#b2b79c'
+    yellow: '#dfc49a'
+    blue: '#c7b19a'
+    magenta: '#c0adb3'
+    cyan: '#b7c0b0'
+    white: '#f2e7d7'

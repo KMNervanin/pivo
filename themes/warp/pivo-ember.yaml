@@ -1,0 +1,25 @@
+name: Pivo Ember
+accent: '#d58c64'
+cursor: '#e2a57c'
+background: '#25211f'
+foreground: '#e6ddd5'
+details: darker
+terminal_colors:
+  normal:
+    black: '#25211f'
+    red: '#bf7f73'
+    green: '#9da184'
+    yellow: '#cfa975'
+    blue: '#b59a84'
+    magenta: '#b298a5'
+    cyan: '#a3aca2'
+    white: '#d0c6bd'
+  bright:
+    black: '#7b6e64'
+    red: '#d2988a'
+    green: '#b0b59a'
+    yellow: '#e2bb84'
+    blue: '#ceb299'
+    magenta: '#c6aeba'
+    cyan: '#bac2b6'
+    white: '#f1e6dd'

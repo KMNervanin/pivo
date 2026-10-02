@@ -1,0 +1,77 @@
+diff --git a/app/src/workspace/view/vertical_tabs.rs b/app/src/workspace/view/vertical_tabs.rs
+index 38bf5be..8318079 100644
+--- a/app/src/workspace/view/vertical_tabs.rs
++++ b/app/src/workspace/view/vertical_tabs.rs
+@@ -3350,6 +3350,25 @@ fn resolve_icon_with_status_variant(
+         TypedPane::Terminal(terminal_pane) => {
+             let terminal_view = terminal_pane.terminal_view(app);
+             let terminal_view = terminal_view.as_ref(app);
++            let shell_title = terminal_view.terminal_title_from_shell();
++            if shell_title == "🍺 Pivo" || shell_title.starts_with("🍺 Pivo | ") {
++                return IconWithStatusVariant::CustomAvatar {
++                    avatar: ConstrainedBox::new(
++                        Align::new(
++                            Text::new_inline("🍺", appearance.ui_font_family(), 22.)
++                                // The default 1.2 line height exceeds the 24px icon slot and hides the entire line.
++                                .with_line_height_ratio(1.)
++                                .finish(),
++                        )
++                        .finish(),
++                    )
++                    .with_width(VERTICAL_TABS_ICON_SIZE)
++                    .with_height(VERTICAL_TABS_ICON_SIZE)
++                    .finish(),
++                    status: None,
++                    is_ambient: false,
++                };
++            }
+             match terminal_view_agent_icon_variant(terminal_view, app) {
+                 Some(variant) => variant,
+                 _ => {
+@@ -4697,14 +4716,15 @@ fn compact_branch_subtitle_display(
+     git_branch: Option<&str>,
+     working_directory: Option<&str>,
+ ) -> Option<(String, bool)> {
+-    git_branch
+-        .filter(|branch| !branch.trim().is_empty())
+-        .map(|branch| (branch.to_string(), true))
+-        .or_else(|| {
+-            working_directory
+-                .filter(|wd| !wd.trim().is_empty())
+-                .map(|wd| (wd.to_string(), false))
+-        })
++    match (
++        git_branch.filter(|branch| !branch.trim().is_empty()),
++        working_directory.filter(|wd| !wd.trim().is_empty()),
++    ) {
++        (Some(branch), Some(wd)) => Some((format!("{wd} · ⎇ {branch}"), false)),
++        (Some(branch), None) => Some((branch.to_string(), true)),
++        (None, Some(wd)) => Some((wd.to_string(), false)),
++        (None, None) => None,
++    }
+ }
+ 
+ fn render_git_branch_text(
+diff --git a/app/src/workspace/view/vertical_tabs_tests.rs b/app/src/workspace/view/vertical_tabs_tests.rs
+index 9152d9f..1f0fad1 100644
+--- a/app/src/workspace/view/vertical_tabs_tests.rs
++++ b/app/src/workspace/view/vertical_tabs_tests.rs
+@@ -934,8 +934,17 @@ fn compact_branch_subtitle_falls_back_to_working_directory_without_branch_icon()
+     );
+     assert_eq!(
+         compact_branch_subtitle_display(Some("main"), Some("~/warp")),
+-        Some(("main".to_string(), true))
++        Some(("~/warp · ⎇ main".to_string(), false))
+     );
++    assert_eq!(
++        compact_branch_subtitle_display(Some("feature/test"), None),
++        Some(("feature/test".to_string(), true))
++    );
++    assert_eq!(
++        compact_branch_subtitle_display(None, Some("/")),
++        Some(("/".to_string(), false))
++    );
++    assert_eq!(compact_branch_subtitle_display(Some(" "), Some(" ")), None);
+ }
+ 
+ #[test]

@@ -1,0 +1,13 @@
+{
+  "version": "1.18.34-pivo.5",
+  "opencode": {
+    "url": "https://github.com/anomalyco/opencode.git",
+    "commit": "aec0b9a6d8898f68f923aaf08b7306d931fd9d76",
+    "license": "MIT"
+  },
+  "warp": {
+    "url": "https://github.com/warpdotdev/warp.git",
+    "commit": "3f37d69ff3e87818d24f803c16b2e045fa4bd95e",
+    "license": "AGPL-3.0-only (WarpUI: MIT)"
+  }
+}

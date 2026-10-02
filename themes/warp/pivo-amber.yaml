@@ -1,0 +1,25 @@
+name: Pivo Amber
+accent: '#d7b566'
+cursor: '#e4c783'
+background: '#24221f'
+foreground: '#e7e0d3'
+details: darker
+terminal_colors:
+  normal:
+    black: '#24221f'
+    red: '#c98276'
+    green: '#9ca47c'
+    yellow: '#d7b566'
+    blue: '#bca47b'
+    magenta: '#b49b9b'
+    cyan: '#adb39b'
+    white: '#d2cbbf'
+  bright:
+    black: '#777166'
+    red: '#d9a093'
+    green: '#b1b998'
+    yellow: '#e4c783'
+    blue: '#cfb98e'
+    magenta: '#c5b0ae'
+    cyan: '#c3c8b2'
+    white: '#f1eadc'

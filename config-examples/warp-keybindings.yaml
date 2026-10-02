@@ -1,0 +1,23 @@
+---
+"editor_view:up": none
+"workspace:toggle_ai_assistant": none
+"workspace:new_agent_tab": none
+"workspace:new_ambient_agent_tab": none
+"workspace:toggle_agent_management_view": none
+"workspace:toggle_conversation_list_view": none
+"workspace:left_panel_agent_conversations": none
+"workspace:toggle_notification_mailbox": none
+"workspace:jump_to_latest_toast": none
+"workspace:open_mcp_servers": none
+"workspace:open_ai_fact_collection": none
+"terminal:ask_ai_assistant": none
+"terminal:ask_ai_assistant_last_block": none
+"terminal:jump_to_latest_agent_message": none
+"terminal:load_agent_mode_conversation": none
+"terminal:toggle_conversation_details_panel": none
+"terminal:cycle_next_orchestration_child_agent": none
+"terminal:cycle_previous_orchestration_child_agent": none
+"input:toggle_input_type": none
+"input:set_mode_agent": none
+"input:set_mode_unlocked_agent": none
+"input:start_new_agent_conversation": none
