@@ -1017,6 +1017,70 @@ index 0000000..a92bf6a
 +    },
 +  }
 +}
+diff --git a/packages/tui/src/context/sync.tsx b/packages/tui/src/context/sync.tsx
+index 71e050d..3fba283 100644
+--- a/packages/tui/src/context/sync.tsx
++++ b/packages/tui/src/context/sync.tsx
+@@ -337,25 +337,6 @@ export const {
+               draft.splice(result.index, 0, event.properties.info)
+             }),
+           )
+-          const updated = store.message[event.properties.info.sessionID]
+-          if (updated.length > 100) {
+-            const oldest = updated[0]
+-            batch(() => {
+-              setStore(
+-                "message",
+-                event.properties.info.sessionID,
+-                produce((draft) => {
+-                  draft.shift()
+-                }),
+-              )
+-              setStore(
+-                "part",
+-                produce((draft) => {
+-                  delete draft[oldest.id]
+-                }),
+-              )
+-            })
+-          }
+           break
+         }
+         case "message.removed": {
+@@ -600,10 +581,11 @@ export const {
+           const task = (async () => {
+             const [session, messages, todo, diff] = await Promise.all([
+               sdk.client.session.get({ sessionID }, { throwOnError: true }),
+-              sdk.client.session.messages({ sessionID, limit: 100 }),
++              sdk.client.session.messages({ sessionID }),
+               sdk.client.session.todo({ sessionID }),
+               sdk.client.session.diff({ sessionID }),
+             ])
++            if (messages.error) return
+             setStore(
+               produce((draft) => {
+                 const match = search(draft.session, sessionID, (s) => s.id)
+@@ -622,9 +604,7 @@ export const {
+                   ),
+                 )
+                 infos.sort(compareMessage)
+-                const removed = infos.slice(0, -100)
+-                const visible = infos.slice(-100)
+-                const visibleIDs = new Set(visible.map((message) => message.id))
++                const visibleIDs = new Set(infos.map((message) => message.id))
+                 for (const message of messages.data ?? []) {
+                   if (!visibleIDs.has(message.info.id)) {
+                     delete draft.part[message.info.id]
+@@ -652,8 +632,7 @@ export const {
+                   )
+                   draft.part[message.info.id] = parts
+                 }
+-                for (const message of removed) delete draft.part[message.id]
+-                draft.message[sessionID] = visible
++                draft.message[sessionID] = infos
+                 draft.session_diff[sessionID] = diff.data ?? []
+               }),
+             )
 diff --git a/packages/tui/src/context/theme.tsx b/packages/tui/src/context/theme.tsx
 index 909dd69..3b71b9a 100644
 --- a/packages/tui/src/context/theme.tsx
@@ -1131,7 +1195,7 @@ index d4145e2..814b85d 100644
              <Prompt ref={bind} right={<pluginRuntime.Slot name="home_prompt_right" />} placeholders={placeholder} />
            </pluginRuntime.Slot>
 diff --git a/packages/tui/src/routes/session/index.tsx b/packages/tui/src/routes/session/index.tsx
-index 2b54f21..ae4b79a 100644
+index 2b54f21..f733627 100644
 --- a/packages/tui/src/routes/session/index.tsx
 +++ b/packages/tui/src/routes/session/index.tsx
 @@ -73,6 +73,8 @@ import { setPreLayoutSiblingMargin } from "../../util/layout"
@@ -1616,7 +1680,11 @@ index 2b54f21..ae4b79a 100644
            </box>
            <Show when={sidebarVisible()}>
              <Switch>
-@@ -1385,6 +1465,7 @@ function UserMessage(props: {
+@@ -1382,9 +1462,11 @@ function UserMessage(props: {
+     return texts.join("\n\n")
+   })
+   const files = createMemo(() => props.parts.flatMap((x) => (x.type === "file" ? [x] : [])))
++  const typography = useTheme()
    const { theme } = useTheme()
    const [hover, setHover] = createSignal(false)
    const queued = createMemo(() => props.pending !== undefined && props.index > props.pending)
@@ -1624,7 +1692,25 @@ index 2b54f21..ae4b79a 100644
    const color = createMemo(() => local.agent.color(props.message.agent))
    const queuedFg = createMemo(() => selectedForeground(theme, color()))
    const metadataVisible = createMemo(() => queued() || ctx.showTimestamps())
-@@ -1446,8 +1527,15 @@ function UserMessage(props: {
+@@ -1416,7 +1498,16 @@ function UserMessage(props: {
+             backgroundColor={hover() ? theme.backgroundElement : theme.backgroundPanel}
+             flexShrink={0}
+           >
+-            <text fg={theme.text}>{text()}</text>
++            <text
++              fg={theme.text}
++              attributes={
++                typography.selected.startsWith("pivo-") || typography.selected === "claude-pivo-orig"
++                  ? TextAttributes.BOLD
++                  : TextAttributes.NONE
++              }
++            >
++              {text()}
++            </text>
+             <Show when={files().length}>
+               <box flexDirection="row" paddingBottom={metadataVisible() ? 1 : 0} paddingTop={1} gap={1} flexWrap="wrap">
+                 <For each={files()}>
+@@ -1446,8 +1537,15 @@ function UserMessage(props: {
                  </Show>
                }
              >
@@ -1641,7 +1727,7 @@ index 2b54f21..ae4b79a 100644
                </text>
              </Show>
            </box>
-@@ -1486,7 +1574,8 @@ function AssistantMessage(props: { message: AssistantMessage; parts: Part[]; las
+@@ -1486,7 +1584,8 @@ function AssistantMessage(props: { message: AssistantMessage; parts: Part[]; las
      return props.message.time.completed - user.time.created
    })
  
@@ -1651,7 +1737,7 @@ index 2b54f21..ae4b79a 100644
    const backgroundShortcut = useCommandShortcut("session.background")
  
    return (
-@@ -1495,7 +1584,7 @@ function AssistantMessage(props: { message: AssistantMessage; parts: Part[]; las
+@@ -1495,7 +1594,7 @@ function AssistantMessage(props: { message: AssistantMessage; parts: Part[]; las
          {(part, index) => {
            const component = createMemo(() => PART_MAPPING[part.type as keyof typeof PART_MAPPING])
            return (
@@ -1660,7 +1746,7 @@ index 2b54f21..ae4b79a 100644
                <Dynamic
                  last={index() === props.parts.length - 1}
                  component={component()}
-@@ -1508,9 +1597,8 @@ function AssistantMessage(props: { message: AssistantMessage; parts: Part[]; las
+@@ -1508,9 +1607,8 @@ function AssistantMessage(props: { message: AssistantMessage; parts: Part[]; las
        </For>
        <Show when={props.parts.some((x) => x.type === "tool" && x.tool === "task")}>
          <box paddingTop={1} paddingLeft={3}>
@@ -1672,7 +1758,7 @@ index 2b54f21..ae4b79a 100644
              <Show
                when={
                  sync.data.capabilities.experimentalBackgroundSubagents &&
-@@ -1708,10 +1796,14 @@ function TextPart(props: { last: boolean; part: TextPart; message: AssistantMess
+@@ -1708,10 +1806,14 @@ function TextPart(props: { last: boolean; part: TextPart; message: AssistantMess
  
  function ToolPart(props: { last: boolean; part: ToolPart; message: AssistantMessage }) {
    const ctx = use()
@@ -1687,7 +1773,7 @@ index 2b54f21..ae4b79a 100644
      if (ctx.showDetails()) return false
      if (props.part.state.status !== "completed") return false
      return true
-@@ -1737,53 +1829,68 @@ function ToolPart(props: { last: boolean; part: ToolPart; message: AssistantMess
+@@ -1737,53 +1839,68 @@ function ToolPart(props: { last: boolean; part: ToolPart; message: AssistantMess
  
    return (
      <Show when={!shouldHide()}>
@@ -1824,21 +1910,23 @@ index 0c5d2b3..b0d3246 100644
            </box>
          </scrollbox>
 diff --git a/packages/tui/src/theme/index.ts b/packages/tui/src/theme/index.ts
-index e8a5f2c..2a2efab 100644
+index e8a5f2c..644edbf 100644
 --- a/packages/tui/src/theme/index.ts
 +++ b/packages/tui/src/theme/index.ts
-@@ -22,6 +22,7 @@ import nightowl from "./assets/nightowl.json" with { type: "json" }
+@@ -22,6 +22,8 @@ import nightowl from "./assets/nightowl.json" with { type: "json" }
  import nord from "./assets/nord.json" with { type: "json" }
  import onedark from "./assets/one-dark.json" with { type: "json" }
  import opencode from "./assets/opencode.json" with { type: "json" }
 +import pivoClaude from "./assets/pivo-claude.json" with { type: "json" }
++import pivoKimi from "./assets/pivo-kimi.json" with { type: "json" }
  import orng from "./assets/orng.json" with { type: "json" }
  import osakaJade from "./assets/osaka-jade.json" with { type: "json" }
  import palenight from "./assets/palenight.json" with { type: "json" }
-@@ -128,6 +129,63 @@ export type ThemeJson = {
+@@ -128,6 +130,64 @@ export type ThemeJson = {
  }
  
  export const DEFAULT_THEMES: Record<string, ThemeJson> = {
++  "pivo-kimi": pivoKimi,
 +  "pivo-claude": pivoClaude,
 +  "pivo-amber": {
 +    ...pivoClaude,
@@ -1975,6 +2063,85 @@ index 0000000..4dec2e4
 +    "syntaxType": { "dark": "yellow", "light": "#88681b" },
 +    "syntaxOperator": { "dark": "muted", "light": "mutedLight" },
 +    "syntaxPunctuation": { "dark": "muted", "light": "mutedLight" }
++  }
++}
+diff --git a/packages/tui/src/theme/assets/pivo-kimi.json b/packages/tui/src/theme/assets/pivo-kimi.json
+new file mode 100644
+index 0000000..a41d0b8
+--- /dev/null
++++ b/packages/tui/src/theme/assets/pivo-kimi.json
+@@ -0,0 +1,73 @@
++{
++  "$schema": "https://opencode.ai/theme.json",
++  "defs": {
++    "blue": "#4FA8FF",
++    "blueLight": "#1565C0",
++    "gold": "#E8A838",
++    "goldLight": "#92660A",
++    "teal": "#5BC0BE",
++    "tealLight": "#00838F",
++    "text": "#E0E0E0",
++    "strong": "#F5F5F5",
++    "muted": "#888888",
++    "green": "#4EC87E",
++    "red": "#E85454",
++    "background": "#16181C",
++    "panel": "#1E2127",
++    "element": "#282C34"
++  },
++  "theme": {
++    "primary": { "dark": "blue", "light": "blueLight" },
++    "secondary": { "dark": "gold", "light": "goldLight" },
++    "accent": { "dark": "gold", "light": "goldLight" },
++    "error": { "dark": "red", "light": "#B91C1C" },
++    "warning": { "dark": "gold", "light": "goldLight" },
++    "success": { "dark": "green", "light": "#0E7A38" },
++    "info": { "dark": "blue", "light": "blueLight" },
++    "text": { "dark": "text", "light": "#1A1A1A" },
++    "textMuted": { "dark": "muted", "light": "#5F5F5F" },
++    "selectedListItemText": { "dark": "background", "light": "#FFFFFF" },
++    "background": { "dark": "background", "light": "#FAFAFA" },
++    "backgroundPanel": { "dark": "panel", "light": "#F0F2F5" },
++    "backgroundElement": { "dark": "element", "light": "#E3E8EF" },
++    "backgroundMenu": { "dark": "panel", "light": "#F0F2F5" },
++    "border": { "dark": "#5A5A5A", "light": "#737373" },
++    "borderActive": { "dark": "gold", "light": "goldLight" },
++    "borderSubtle": { "dark": "#343840", "light": "#D6DCE5" },
++    "diffAdded": { "dark": "green", "light": "#0E7A38" },
++    "diffRemoved": { "dark": "red", "light": "#B91C1C" },
++    "diffContext": { "dark": "muted", "light": "#454545" },
++    "diffHunkHeader": { "dark": "blue", "light": "blueLight" },
++    "diffHighlightAdded": { "dark": "#7AD99B", "light": "#0E7A38" },
++    "diffHighlightRemoved": { "dark": "#F08585", "light": "#B91C1C" },
++    "diffAddedBg": { "dark": "#1C3028", "light": "#E0F0E5" },
++    "diffRemovedBg": { "dark": "#352226", "light": "#F8E3E5" },
++    "diffContextBg": { "dark": "background", "light": "#FAFAFA" },
++    "diffLineNumber": { "dark": "#6B6B6B", "light": "#737373" },
++    "diffAddedLineNumberBg": { "dark": "#192A23", "light": "#D0E8D8" },
++    "diffRemovedLineNumberBg": { "dark": "#2C1E22", "light": "#F0D3D7" },
++    "markdownText": { "dark": "text", "light": "#1A1A1A" },
++    "markdownHeading": { "dark": "strong", "light": "#1A1A1A" },
++    "markdownLink": { "dark": "blue", "light": "blueLight" },
++    "markdownLinkText": { "dark": "blue", "light": "blueLight" },
++    "markdownCode": { "dark": "blue", "light": "blueLight" },
++    "markdownBlockQuote": { "dark": "muted", "light": "#454545" },
++    "markdownEmph": { "dark": "text", "light": "#1A1A1A" },
++    "markdownStrong": { "dark": "strong", "light": "#1A1A1A" },
++    "markdownHorizontalRule": { "dark": "#5A5A5A", "light": "#737373" },
++    "markdownListItem": { "dark": "gold", "light": "goldLight" },
++    "markdownListEnumeration": { "dark": "gold", "light": "goldLight" },
++    "markdownImage": { "dark": "blue", "light": "blueLight" },
++    "markdownImageText": { "dark": "blue", "light": "blueLight" },
++    "markdownCodeBlock": { "dark": "text", "light": "#1A1A1A" },
++    "syntaxComment": { "dark": "muted", "light": "#5F5F5F" },
++    "syntaxKeyword": { "dark": "blue", "light": "blueLight" },
++    "syntaxFunction": { "dark": "teal", "light": "tealLight" },
++    "syntaxVariable": { "dark": "text", "light": "#1A1A1A" },
++    "syntaxString": { "dark": "green", "light": "#0E7A38" },
++    "syntaxNumber": { "dark": "#FFCB6B", "light": "#9A4A00" },
++    "syntaxType": { "dark": "gold", "light": "goldLight" },
++    "syntaxOperator": { "dark": "teal", "light": "tealLight" },
++    "syntaxPunctuation": { "dark": "muted", "light": "#454545" }
 +  }
 +}
 diff --git a/packages/tui/src/util/agent-duration.ts b/packages/tui/src/util/agent-duration.ts
@@ -2423,10 +2590,10 @@ index 0000000..b65fa27
 +})
 diff --git a/packages/tui/test/fixture/pivo-render-check.tsx b/packages/tui/test/fixture/pivo-render-check.tsx
 new file mode 100644
-index 0000000..f138d9a
+index 0000000..f4f2b34
 --- /dev/null
 +++ b/packages/tui/test/fixture/pivo-render-check.tsx
-@@ -0,0 +1,463 @@
+@@ -0,0 +1,553 @@
 +import { expect, mock } from "bun:test"
 +import type { TuiPluginApi } from "@opencode-ai/plugin/tui"
 +import type { ToolPart } from "@opencode-ai/sdk/v2"
@@ -2491,6 +2658,28 @@ index 0000000..f138d9a
 +    },
 +    { id: "prt_d", sessionID, messageID, type: "text" as const, text: "VISIBLE AFTER" },
 +  ]
++  const history = Array.from({ length: process.env.PIVO_HISTORY_CHECK ? 120 : 0 }, (_, index) => {
++    const id = `msg_000_history_${String(index).padStart(4, "0")}`
++    return {
++      info: {
++        id,
++        sessionID,
++        role: "user",
++        agent: "build",
++        model: { providerID: "test", modelID: "test" },
++        time: { created: 0 },
++      },
++      parts: [
++        {
++          id: `prt_history_${index}`,
++          sessionID,
++          messageID: id,
++          type: "text",
++          text: index === 0 ? "BEGINNING OF COMPLETE HISTORY" : `Earlier message ${index}`,
++        },
++      ],
++    }
++  })
 +  const events = createEventSource()
 +  let steerRequests = 0
 +  let releaseSteer: (response: Response) => void = () => {}
@@ -2555,7 +2744,11 @@ index 0000000..f138d9a
 +      })
 +    if (url.pathname === "/session") return json([session])
 +    if (url.pathname === `/session/${sessionID}`) return json(session)
-+    if (url.pathname === `/session/${sessionID}/message`) return json([{ info: message, parts }])
++    if (url.pathname === `/session/${sessionID}/message`) {
++      const messages = [...history, { info: message, parts }]
++      const limit = url.searchParams.get("limit")
++      return json(limit ? messages.slice(-Number(limit)) : messages)
++    }
 +    if (url.pathname === `/session/${sessionID}/todo` || url.pathname === `/session/${sessionID}/diff`) return json([])
 +    if (url.pathname === "/session/status") return json({ [sessionID]: { type: "busy" } })
 +    if (url.pathname === "/agent")
@@ -2626,6 +2819,56 @@ index 0000000..f138d9a
 +    const hidden = await wait((text) => text.includes("VISIBLE AFTER"))
 +    await wait(() => (setup.renderer.root.findDescendantById("pivo-session-input")?.height ?? 0) >= 5)
 +    assertInputVisible()
++    if (process.env.PIVO_HISTORY_CHECK) {
++      api!.keymap.dispatchCommand("session.first")
++      await wait((text) => text.includes("BEGINNING OF COMPLETE HISTORY"))
++      for (let index = 0; index < 120; index++) {
++        const id = `msg_z_live_${String(index).padStart(4, "0")}`
++        events.emit({
++          directory,
++          payload: {
++            id: `evt_live_message_${index}`,
++            type: "message.updated",
++            properties: {
++              sessionID,
++              info: {
++                ...message,
++                id,
++                parentID: "msg_pivo_queued",
++                finish: "stop",
++                time: { created: 100 + index, completed: 101 + index },
++              },
++            },
++          },
++        })
++        events.emit({
++          directory,
++          payload: {
++            id: `evt_live_part_${index}`,
++            type: "message.part.updated",
++            properties: {
++              sessionID,
++              time: 100 + index,
++              part: {
++                id: `prt_z_live_${index}`,
++                sessionID,
++                messageID: id,
++                type: "text",
++                text: `New live reply ${index}`,
++              },
++            },
++          },
++        })
++      }
++      api!.keymap.dispatchCommand("session.last")
++      await wait((text) => text.includes("New live reply 119"))
++      api!.keymap.dispatchCommand("session.first")
++      await wait((text) => text.includes("BEGINNING OF COMPLETE HISTORY"))
++      assertInputVisible()
++      api!.keymap.dispatchCommand("app.exit")
++      await task
++      return
++    }
 +    expect(hidden).not.toContain("HIDDEN OLD THOUGHT")
 +    expect(hidden).not.toContain("HIDDEN LIVE THOUGHT")
 +    expect(hidden).not.toContain("Thought")
@@ -2748,6 +2991,20 @@ index 0000000..f138d9a
 +      },
 +    })
 +    await wait((text) => text.includes("QUEUED"))
++    const userSpan = () =>
++      setup
++        .captureSpans()
++        .lines.flatMap((line) => line.spans)
++        .find((span) => span.text.includes("Queued correction"))!
++    expect(userSpan().attributes & core.TextAttributes.BOLD).not.toBe(0)
++    expect(api!.theme.set("pivo-kimi")).toBe(true)
++    await frame()
++    expect(userSpan().attributes & core.TextAttributes.BOLD).not.toBe(0)
++    expect(api!.theme.set("opencode")).toBe(true)
++    await frame()
++    expect(userSpan().attributes & core.TextAttributes.BOLD).toBe(0)
++    api!.theme.set("pivo-claude")
++    await frame()
 +    setup.mockInput.pressEnter({ super: true })
 +    await wait(() => steerRequests === 1)
 +    setup.mockInput.pressEnter({ super: true })
@@ -2890,12 +3147,299 @@ index 0000000..f138d9a
 +}
 +
 +await check()
+diff --git a/packages/tui/test/fixture/pivo-demo.tsx b/packages/tui/test/fixture/pivo-demo.tsx
+new file mode 100644
+index 0000000..80bfb57
+--- /dev/null
++++ b/packages/tui/test/fixture/pivo-demo.tsx
+@@ -0,0 +1,281 @@
++import { expect, mock } from "bun:test"
++import type { TuiPluginApi, TuiSlotPlugin } from "@opencode-ai/plugin/tui"
++import { createTestRenderer } from "@opentui/core/testing"
++import { Effect } from "effect"
++import { Global } from "@opencode-ai/core/global"
++import path from "node:path"
++import { createTuiResolvedConfig } from "./tui-runtime"
++import { createEventSource, createFetch, directory, json } from "./tui-sdk"
++import { tmpdir } from "./fixture"
++
++const output = process.env.PIVO_DEMO_OUTPUT
++if (!output) throw new Error("Set PIVO_DEMO_OUTPUT to a capture directory")
++await using tmp = await tmpdir()
++await Bun.write(
++  `${tmp.path}/kv.json`,
++  JSON.stringify({ pivo_theme: "pivo-kimi", pivo_content_width: 100, animations_enabled: false }),
++)
++const setup = await createTestRenderer({ width: 140, height: 36, useThread: false, kittyKeyboard: true })
++const core = await import("@opentui/core")
++await mock.module("@opentui/core", () => ({ ...core, createCliRenderer: async () => setup.renderer }))
++const sessionID = "ses_demo"
++const session = {
++  id: sessionID,
++  title: "Pivo demo · API reliability",
++  slug: "demo",
++  projectID: "proj_test",
++  directory,
++  version: "1.18.34",
++  time: { created: 1, updated: 135000 },
++}
++const assistant = {
++  id: "msg_demo_assistant",
++  sessionID,
++  role: "assistant",
++  agent: "build",
++  mode: "build",
++  parentID: "msg_demo_user",
++  providerID: "demo",
++  modelID: "demo-model",
++  path: { cwd: directory, root: directory },
++  cost: 0,
++  tokens: { input: 42000, output: 900, reasoning: 400, cache: { read: 6000, write: 0 } },
++  time: { created: 1000, completed: 135000 },
++  finish: "stop",
++}
++const model = {
++  id: "demo-model",
++  name: "Demo Model",
++  providerID: "demo",
++  api: { id: "demo-model", npm: "@ai-sdk/openai", url: "http://demo.invalid" },
++  limit: { context: 200000, output: 16000 },
++  cost: { input: 0, output: 0 },
++  capabilities: { input: {}, output: {} },
++  variants: {},
++}
++const provider = { id: "demo", name: "Demo", env: [], models: { "demo-model": model } }
++const part = (id: string, messageID: string, text: string) => ({ id, messageID, sessionID, type: "text", text })
++const calls = createFetch((url) => {
++  if (url.pathname === "/config/providers") return json({ providers: [provider], default: { demo: "demo-model" } })
++  if (url.pathname === "/provider")
++    return json({ all: [provider], default: { demo: "demo-model" }, connected: ["demo"] })
++  if (url.pathname === "/agent")
++    return json([
++      { name: "build", mode: "primary", options: {}, permission: [] },
++      { name: "reader", description: "Read-only researcher", mode: "subagent", options: {}, permission: [] },
++    ])
++  if (url.pathname === "/mcp")
++    return json({ documentation: { status: "connected" }, local_tools: { status: "connected" } })
++  if (url.pathname === "/session") return json([session])
++  if (url.pathname === `/session/${sessionID}`) return json(session)
++  if (url.pathname === `/session/${sessionID}/message`)
++    return json([
++      {
++        info: {
++          id: "msg_demo_user",
++          sessionID,
++          role: "user",
++          agent: "build",
++          model: { providerID: "demo", modelID: "demo-model" },
++          time: { created: 1 },
++        },
++        parts: [
++          part(
++            "prt_demo_user",
++            "msg_demo_user",
++            "Find why the API retries fail. Keep the fix small, preserve running tasks, and verify the result.",
++          ),
++        ],
++      },
++      {
++        info: assistant,
++        parts: [
++          {
++            id: "prt_demo_read",
++            messageID: assistant.id,
++            sessionID,
++            type: "tool",
++            callID: "demo_read",
++            tool: "read",
++            state: {
++              status: "completed",
++              input: { filePath: "src/api/retry.ts" },
++              title: "src/api/retry.ts",
++              output: "Read retry implementation",
++              metadata: { preview: "export async function request() { return retry(fetchRequest) }" },
++              time: { start: 1000, end: 2000 },
++            },
++          },
++          {
++            id: "prt_demo_tool",
++            messageID: assistant.id,
++            sessionID,
++            type: "tool",
++            callID: "demo_call",
++            tool: "edit",
++            state: {
++              status: "completed",
++              input: {
++                filePath: "src/api/retry.ts",
++                oldString: "return request()",
++                newString: "return retry(request)",
++              },
++              title: "src/api/retry.ts",
++              output: "Updated retry handling",
++              metadata: {
++                diff: "--- a/src/api/retry.ts\n+++ b/src/api/retry.ts\n@@ -1,1 +1,1 @@\n-return request()\n+return retry(request)",
++              },
++              time: { start: 2000, end: 3000 },
++            },
++          },
++          {
++            id: "prt_demo_bash",
++            messageID: assistant.id,
++            sessionID,
++            type: "tool",
++            callID: "demo_bash",
++            tool: "bash",
++            state: {
++              status: "completed",
++              input: { command: "bun test test/api/retry.test.ts", description: "Verify retry handling" },
++              title: "Verify retry handling",
++              output: "3 pass\n0 fail\nRetry recovery, preserved request, final error",
++              metadata: { output: "3 pass\n0 fail\nRetry recovery, preserved request, final error", exit: 0 },
++              time: { start: 3000, end: 4000 },
++            },
++          },
++          part(
++            "prt_demo_result",
++            assistant.id,
++            "## Verified fix\n\nThe retry path now preserves the request and reports the final error.\n\n- Existing tasks keep running.\n- The complete chat history stays available.\n- Focused tests pass.\n\nUse `/sidebar` to toggle context, `/width` to adjust the chat, and `/subagents` to inspect child tasks.",
++          ),
++        ],
++      },
++    ])
++  if (url.pathname === `/session/${sessionID}/children`)
++    return json([
++      { ...session, id: "ses_demo_child", parentID: sessionID, title: "Review retry ownership (@reader subagent)" },
++    ])
++  if (url.pathname === "/session/ses_demo_child/message")
++    return json([{ info: { ...assistant, sessionID: "ses_demo_child" }, parts: [] }])
++  if (url.pathname === `/session/${sessionID}/todo` || url.pathname === `/session/${sessionID}/diff`) return json([])
++  if (url.pathname === "/session/status") return json({ [sessionID]: { type: "idle" } })
++  return undefined
++})
++let api: TuiPluginApi | undefined
++let disposeSlots: (() => void) | undefined
++const frame = async () => {
++  await setup.renderOnce()
++  return setup.captureCharFrame()
++}
++const wait = async (text: string) => {
++  for (let index = 0; index < 200; index++) {
++    if ((await frame()).includes(text)) return
++    await Bun.sleep(10)
++  }
++  throw new Error(`Missing ${text}:\n${await frame()}`)
++}
++const capture = async (name: string) => {
++  await setup.renderOnce()
++  await setup.renderOnce()
++  const captured = setup.captureSpans()
++  await Bun.write(
++    path.join(output, `${name}.json`),
++    JSON.stringify({
++      ...captured,
++      lines: captured.lines.map((line) => ({
++        spans: line.spans.map((span) => ({ ...span, fg: span.fg.toInts(), bg: span.bg.toInts() })),
++      })),
++    }),
++  )
++}
++try {
++  const { run } = await import("../../src/app")
++  const task = Effect.runPromise(
++    run({
++      url: "http://demo.invalid",
++      directory,
++      config: createTuiResolvedConfig({ plugin_enabled: {} }),
++      fetch: calls.fetch,
++      events: createEventSource().source,
++      args: { sessionID },
++      pluginHost: {
++        async start(input) {
++          api = input.api
++          const slots = input.runtime.setupSlots(input.api)
++          disposeSlots = () => slots.dispose()
++          const context = await import("../../src/feature-plugins/sidebar/context")
++          const mcp = await import("../../src/feature-plugins/sidebar/mcp")
++          const footer = await import("../../src/feature-plugins/sidebar/footer")
++          for (const plugin of [context.default, mcp.default, footer.default]) {
++            await plugin.tui(
++              {
++                ...input.api,
++                slots: {
++                  register: <Slots extends Record<string, object>>(definition: TuiSlotPlugin<Slots>) => {
++                    slots.register({ ...definition, id: plugin.id })
++                    return plugin.id
++                  },
++                },
++              },
++              undefined,
++              {
++                id: plugin.id,
++                source: "internal",
++                spec: plugin.id,
++                target: plugin.id,
++                first_time: 0,
++                last_time: 0,
++                time_changed: 0,
++                load_count: 1,
++                fingerprint: "demo",
++                state: "same",
++              },
++            )
++          }
++        },
++        async dispose() {
++          disposeSlots?.()
++        },
++      },
++    }).pipe(Effect.provide(Global.layerWith({ state: tmp.path }))),
++  )
++  await wait("Verified fix")
++  await wait("Время агента")
++  await wait("Context")
++  await wait("documentation")
++  expect(await frame()).toContain("2:14")
++  const userSpan = setup
++    .captureSpans()
++    .lines.flatMap((line) => line.spans)
++    .find((span) => span.text.includes("Find why"))!
++  expect(userSpan.attributes & core.TextAttributes.BOLD).not.toBe(0)
++  await capture("pivo-kimi-chat")
++  await capture("pivo-tools-important")
++  api!.keymap.dispatchCommand("session.toggle.important")
++  setup.resize(140, 42)
++  await wait("3 pass")
++  await capture("pivo-tools-full")
++  api!.keymap.dispatchCommand("session.toggle.actions")
++  await capture("pivo-tools-hidden")
++  expect(await frame()).not.toContain("Verify retry handling")
++  api!.keymap.dispatchCommand("session.toggle.important")
++  setup.resize(140, 36)
++  await frame()
++  api!.theme.set("pivo-claude")
++  await capture("pivo-claude-chat")
++  api!.theme.set("pivo-kimi")
++  api!.keymap.dispatchCommand("pivo.width")
++  await wait("Ширина чата")
++  await capture("pivo-width")
++  setup.mockInput.pressEscape()
++  api!.keymap.dispatchCommand("session.subagents")
++  await wait("Review retry ownership")
++  await capture("pivo-subagents")
++  setup.mockInput.pressEscape()
++  api!.keymap.dispatchCommand("app.exit")
++  await task
++} finally {
++  if (!setup.renderer.isDestroyed) setup.renderer.destroy()
++  mock.restore()
++}
 diff --git a/packages/tui/test/pivo-thinking.test.tsx b/packages/tui/test/pivo-thinking.test.tsx
 new file mode 100644
-index 0000000..b1a2eaf
+index 0000000..3b423bd
 --- /dev/null
 +++ b/packages/tui/test/pivo-thinking.test.tsx
-@@ -0,0 +1,20 @@
+@@ -0,0 +1,39 @@
 +import { expect, test } from "bun:test"
 +
 +test("pivo renders thoughts, important tools and Cmd+Enter without losing queued messages", async () => {
@@ -2916,3 +3460,163 @@ index 0000000..b1a2eaf
 +    clearTimeout(timer)
 +  }
 +}, 25000)
++
++test("pivo can scroll to the beginning after hydration and 120 new replies", async () => {
++  const child = Bun.spawn([process.execPath, "./test/fixture/pivo-render-check.tsx"], {
++    env: { ...process.env, PIVO_HISTORY_CHECK: "1" },
++    stdout: "pipe",
++    stderr: "pipe",
++  })
++  const timer = setTimeout(() => child.kill(), 20000)
++  try {
++    const [exit, stdout, stderr] = await Promise.all([
++      child.exited,
++      new Response(child.stdout).text(),
++      new Response(child.stderr).text(),
++    ])
++    expect(exit, stdout + stderr).toBe(0)
++  } finally {
++    clearTimeout(timer)
++  }
++}, 25000)
+diff --git a/packages/tui/test/cli/cmd/tui/sync-live-hydration.test.tsx b/packages/tui/test/cli/cmd/tui/sync-live-hydration.test.tsx
+index de7d4eb..1d43965 100644
+--- a/packages/tui/test/cli/cmd/tui/sync-live-hydration.test.tsx
++++ b/packages/tui/test/cli/cmd/tui/sync-live-hydration.test.tsx
+@@ -33,6 +33,83 @@ function global(payload: GlobalEvent["payload"]): GlobalEvent {
+   return { directory: "/tmp/other", project: "proj_test", payload }
+ }
+ 
++test("hydration retains the beginning of sessions longer than 100 messages", async () => {
++  await using tmp = await tmpdir()
++  await Bun.write(`${tmp.path}/kv.json`, "{}")
++  const history = Array.from({ length: 165 }, (_, index) => ({
++    info: {
++      ...assistant,
++      id: `msg_history_${String(index).padStart(4, "0")}`,
++      time: { created: index + 1, completed: index + 2 },
++    },
++    parts: [
++      {
++        id: `prt_history_${index}`,
++        sessionID,
++        messageID: `msg_history_${String(index).padStart(4, "0")}`,
++        type: "text",
++        text: index === 0 ? "BEGINNING OF CHAT" : `Message ${index}`,
++      },
++    ],
++  }))
++  let limit: string | null = null
++  const { app, sync } = await mount((url) => {
++    if (url.pathname === `/session/${sessionID}`) return json(session)
++    if (url.pathname === `/session/${sessionID}/message`) {
++      limit = url.searchParams.get("limit")
++      return json(limit ? history.slice(-Number(limit)) : history)
++    }
++    if (url.pathname === `/session/${sessionID}/todo` || url.pathname === `/session/${sessionID}/diff`) return json([])
++    return undefined
++  }, tmp.path)
++  try {
++    await sync.session.sync(sessionID)
++    expect(sync.data.message[sessionID]).toHaveLength(165)
++    expect(sync.data.message[sessionID][0].id).toBe(history[0].info.id)
++    expect(sync.data.part[history[0].info.id][0]).toMatchObject({ text: "BEGINNING OF CHAT" })
++    expect(limit).toBeNull()
++  } finally {
++    app.renderer.destroy()
++  }
++})
++
++test("live messages never evict earlier messages or their text parts", async () => {
++  await using tmp = await tmpdir()
++  await Bun.write(`${tmp.path}/kv.json`, "{}")
++  const { app, emit, sync } = await mount(undefined, tmp.path)
++  try {
++    for (let index = 0; index < 165; index++) {
++      const id = `msg_live_${String(index).padStart(4, "0")}`
++      emit(
++        global({
++          id: `evt_message_${index}`,
++          type: "message.updated",
++          properties: {
++            sessionID,
++            info: { ...assistant, id, time: { created: index + 1, completed: index + 2 } },
++          },
++        }),
++      )
++      emit(
++        global({
++          id: `evt_part_${index}`,
++          type: "message.part.updated",
++          properties: {
++            sessionID,
++            time: index + 1,
++            part: { id: `prt_live_${index}`, sessionID, messageID: id, type: "text", text: `Message ${index}` },
++          },
++        }),
++      )
++    }
++    await wait(() => sync.data.part["msg_live_0164"] !== undefined)
++    expect(sync.data.message[sessionID]).toHaveLength(165)
++    expect(sync.data.part["msg_live_0000"][0]).toMatchObject({ text: "Message 0" })
++  } finally {
++    app.renderer.destroy()
++  }
++})
++
+ test("live messages use creation time with an ID tie-break", async () => {
+   await using tmp = await tmpdir()
+   await Bun.write(`${tmp.path}/kv.json`, "{}")
+@@ -199,7 +276,7 @@ test("hydration does not clear text streamed before it starts", async () => {
+   }
+ })
+ 
+-test("live messages merged during hydration retain the 100 message window", async () => {
++test("live messages merged during hydration retain the entire history", async () => {
+   await using tmp = await tmpdir()
+   await Bun.write(`${tmp.path}/kv.json`, "{}")
+ 
+@@ -237,10 +314,10 @@ test("live messages merged during hydration retain the 100 message window", asyn
+     )
+     await hydrate
+ 
+-    expect(sync.data.message[sessionID]).toHaveLength(100)
++    expect(sync.data.message[sessionID]).toHaveLength(101)
+     expect(sync.data.message[sessionID].at(-1)?.id).toBe(live.id)
+-    expect(sync.data.message[sessionID].some((message) => message.id === "msg_000")).toBe(false)
+-    expect(sync.data.part.msg_000).toBeUndefined()
++    expect(sync.data.message[sessionID].some((message) => message.id === "msg_000")).toBe(true)
++    expect(sync.data.part.msg_000[0]).toMatchObject({ text: "msg_000" })
+   } finally {
+     app.renderer.destroy()
+   }
+diff --git a/packages/tui/test/cli/cmd/tui/sync-undefined-messages.test.tsx b/packages/tui/test/cli/cmd/tui/sync-undefined-messages.test.tsx
+index 6aea128..6f5594c 100644
+--- a/packages/tui/test/cli/cmd/tui/sync-undefined-messages.test.tsx
++++ b/packages/tui/test/cli/cmd/tui/sync-undefined-messages.test.tsx
+@@ -25,9 +25,13 @@ describe("tui sync (#26560)", () => {
+       directory,
+       project_id: "proj_test",
+     }
++    let requests = 0
+     const { app, sync } = await mount((url) => {
+       if (url.pathname === `/session/${sessionID}`) return json(sessionPayload)
+-      if (url.pathname === `/session/${sessionID}/messages`) return json({}, { status: 500 })
++      if (url.pathname === `/session/${sessionID}/message`) {
++        requests++
++        return requests === 1 ? json({}, { status: 500 }) : json([])
++      }
+       if (url.pathname === `/session/${sessionID}/todo`) return json([])
+       if (url.pathname === `/session/${sessionID}/diff`) return json([])
+       if (url.pathname === "/session") return json([sessionPayload])
+@@ -36,6 +40,10 @@ describe("tui sync (#26560)", () => {
+ 
+     try {
+       await expect(sync.session.sync(sessionID)).resolves.toBeUndefined()
++      expect(sync.data.message[sessionID]).toBeUndefined()
++      await sync.session.sync(sessionID)
++      expect(requests).toBe(2)
++      expect(sync.data.message[sessionID]).toEqual([])
+     } finally {
+       app.renderer.destroy()
+     }

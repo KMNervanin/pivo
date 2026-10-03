@@ -11,6 +11,9 @@ OpenCode and Warp names and trademarks belong to their respective owners.
   See `licenses/WARP-AGPL-3.0.txt` and `licenses/WARP-MIT.txt` (WarpUI only).
 - Dependency and bundled font licenses remain applicable. Warp's bundle builder
   generates `THIRD_PARTY_LICENSES.txt`; license-generation failure fails the build.
+- `pivo-kimi` adapts palette values from Kimi Code 2.1.1, copyright (c) 2026 Moonshot AI,
+  MIT. See `licenses/KIMI-MIT.txt` and https://github.com/MoonshotAI/kimi-code.
+  Background surfaces are Pivo-specific; no Kimi application code or fonts are bundled.
 
 Modified on 2026-10-02: OpenCode TUI branding, reasoning/tool presentation, themes,
 quota dialog, queued steering, subagent menu, content width and agent timer;

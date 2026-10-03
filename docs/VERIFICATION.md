@@ -1,5 +1,25 @@
 # Проверки Pivo
 
+## 1.18.34-pivo.7 — 03.10.2026
+
+- Причина недоступного начала истории: upstream загружал `limit: 100`, обрезал
+  hydrated список до 100 и удалял самое старое сообщение при каждом новом live event.
+  Reproducer дал **RED 2/2**: в обоих сценариях получено 100 вместо 165 сообщений.
+- Исправление сохраняет всю историю, включая parts, при hydration и streaming.
+  Проверены stale hydration/live delta и concurrent removal; удалённые сообщения
+  не восстанавливаются из старого ответа. HTTP failure остаётся non-crashing и допускает retry.
+- Native render-fixture начинает с 120 ранних сообщений, добавляет 120 ответов и
+  снова показывает первый текст через `session.first`. Установленный `.7` также
+  открыл длинную пользовательскую сессию в отдельном tmux: после `Ctrl+G` исходное
+  первое сообщение снова видно. Новых запросов к модели не отправлялось.
+- Новый `pivo-kimi` использует точные основные цвета Kimi Code 2.1.1, собственные
+  фоновые панели Pivo и существующий шрифт терминала. Renderer проверяет bold у
+  пользователя в Kimi/Claude, отсутствие этого override в обычной upstream-теме.
+- TUI suite: **212 pass, 1 skip, 0 fail**, 8 snapshots; typecheck проходит.
+- Семь демонстрационных PNG захвачены из native OpenTUI spans и rasterized шрифтом Hack.
+  Sidebar, compact/full/hidden tools, width slider и subagents используют production
+  компоненты. Все provider/MCP/message данные синтетические; никакой личной истории.
+
 ## 1.18.34-pivo.6 — 03.10.2026
 
 - `/sidebar` зарегистрирован на существующем `session.sidebar.toggle`, без изменения

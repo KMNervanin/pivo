@@ -1,0 +1,25 @@
+name: Pivo Kimi
+accent: '#4FA8FF'
+cursor: '#E8A838'
+background: '#16181C'
+foreground: '#E0E0E0'
+details: darker
+terminal_colors:
+  normal:
+    black: '#16181C'
+    red: '#E85454'
+    green: '#4EC87E'
+    yellow: '#E8A838'
+    blue: '#4FA8FF'
+    magenta: '#BD93F9'
+    cyan: '#5BC0BE'
+    white: '#E0E0E0'
+  bright:
+    black: '#888888'
+    red: '#F08585'
+    green: '#7AD99B'
+    yellow: '#FFCB6B'
+    blue: '#7DBFFF'
+    magenta: '#D1B5FF'
+    cyan: '#80D6D4'
+    white: '#F5F5F5'
