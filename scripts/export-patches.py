@@ -52,19 +52,28 @@ paths = {
         "packages/tui/test/cli/cmd/tui/sync-live-hydration.test.tsx",
         "packages/tui/test/cli/cmd/tui/sync-undefined-messages.test.tsx",
     ],
-    "warp": ["app/src/workspace/view/vertical_tabs.rs", "app/src/workspace/view/vertical_tabs_tests.rs"],
+    "warp": [
+        "app/src/workspace/view/vertical_tabs.rs",
+        "app/src/workspace/view/vertical_tabs_tests.rs",
+        "app/src/terminal/settings.rs",
+        "app/src/terminal/view.rs",
+        "app/src/terminal/grid_renderer/cell_type.rs",
+        "app/src/terminal/view/use_agent_footer/mod.rs",
+    ],
 }
 (ROOT / "patches").mkdir(exist_ok=True)
 (ROOT / "licenses").mkdir(exist_ok=True)
 for name, files in paths.items():
     source = getattr(args, name).resolve()
-    head = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=source, text=True).strip()
-    if head != pins[name]["commit"]:
-        raise SystemExit(f"Wrong base for {name}: {head}")
+    # The checkout may carry local commits on top of the pin; the patch is always against the pin.
+    base = pins[name]["commit"]
+    if subprocess.run(["git", "merge-base", "--is-ancestor", base, "HEAD"], cwd=source).returncode != 0:
+        head = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=source, text=True).strip()
+        raise SystemExit(f"Wrong base for {name}: {head} does not descend from {base}")
     output = bytearray()
     for file in files:
         tracked = subprocess.run(["git", "ls-files", "--error-unmatch", file], cwd=source, capture_output=True).returncode == 0
-        command = ["git", "diff", "--binary", "HEAD", "--", file] if tracked else ["git", "diff", "--binary", "--no-index", "--", "/dev/null", file]
+        command = ["git", "diff", "--binary", base, "--", file] if tracked else ["git", "diff", "--binary", "--no-index", "--", "/dev/null", file]
         result = subprocess.run(command, cwd=source, capture_output=True)
         if result.returncode not in ([0] if tracked else [0, 1]):
             raise SystemExit(result.stderr.decode())

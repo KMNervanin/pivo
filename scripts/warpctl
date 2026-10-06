@@ -1,0 +1,62 @@
+#!/usr/bin/env python3
+"""Quick knobs for Warp Pivo: padding of full-screen apps and window opacity.
+
+  warpctl pad 32        # 32 px around Claude Code / vim / lazygit
+  warpctl pad blocks    # same padding as Warp blocks
+  warpctl sides on|off  # padding on left/right only (Warp Pivo build)
+  warpctl opacity 85    # window opacity 0-100
+  warpctl               # show current values
+
+Edits ~/.warp-oss/settings.toml in place; Warp reloads it live.
+Pass --warp to target the original Warp profile (~/.warp) instead.
+"""
+import re, sys, os
+
+args = [a for a in sys.argv[1:] if a != '--warp']
+profile = '~/.warp' if '--warp' in sys.argv else '~/.warp-oss'
+path = os.path.expanduser(f'{profile}/settings.toml')
+text = open(path).read()
+
+
+def set_key(section, key, value):
+    global text
+    sec = re.search(rf'^\[{re.escape(section)}\]\n', text, re.M)
+    if not sec:
+        text = text.rstrip('\n') + f'\n\n[{section}]\n{key} = {value}\n'
+        return
+    body_start = sec.end()
+    nxt = re.search(r'^\[', text[body_start:], re.M)
+    body_end = body_start + nxt.start() if nxt else len(text)
+    body = text[body_start:body_end]
+    if re.search(rf'^{re.escape(key)}\s*=', body, re.M):
+        body = re.sub(rf'^{re.escape(key)}\s*=.*$', f'{key} = {value}', body, count=1, flags=re.M)
+    else:
+        body = body.rstrip('\n') + f'\n{key} = {value}\n\n'
+    text = text[:body_start] + body + text[body_end:]
+
+
+def show():
+    pad = re.search(r'^alt_screen_padding\s*=\s*(.*)$', text, re.M)
+    op = re.search(r'^override_opacity\s*=\s*(.*)$', text, re.M)
+    sides = re.search(r'^horizontal_padding_only\s*=\s*(.*)$', text, re.M)
+    print(f'{profile}: padding = {pad.group(1) if pad else "default (0)"}, sides only = {sides.group(1) if sides else "false"}, opacity = {op.group(1) if op else "100"}')
+
+
+if not args:
+    show(); sys.exit(0)
+
+cmd, *rest = args
+if cmd == 'pad' and rest:
+    v = rest[0]
+    value = '"match_blocklist"' if v in ('blocks', 'blocklist', 'match') else f'{{ custom = {{ uniform_padding = {float(v):.1f} }} }}'
+    set_key('appearance.full_screen_apps', 'alt_screen_padding', value)
+elif cmd == 'sides' and rest:
+    set_key('appearance.full_screen_apps', 'horizontal_padding_only', 'true' if rest[0] in ('on', 'true', '1') else 'false')
+elif cmd == 'opacity' and rest:
+    n = max(0, min(100, int(rest[0])))
+    set_key('appearance.window', 'override_opacity', str(n))
+else:
+    print(__doc__); sys.exit(1)
+
+open(path, 'w').write(text)
+show()

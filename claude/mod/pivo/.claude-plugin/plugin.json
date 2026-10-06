@@ -1,0 +1,6 @@
+{
+  "name": "pivo",
+  "version": "0.2.0",
+  "description": "Pivo look for Claude Code: /width centers the transcript in a narrower column, /sidebar docks a status pane (context, cost, limits, todo)",
+  "types": "./types/index.d.ts"
+}

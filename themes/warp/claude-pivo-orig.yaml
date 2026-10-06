@@ -1,0 +1,25 @@
+name: Claude Pivo Orig
+accent: '#d97757'
+cursor: '#d97757'
+background: '#262624'
+foreground: '#faf9f5'
+details: darker
+terminal_colors:
+  normal:
+    black: '#262624'
+    red: '#dc8b83'
+    green: '#a5b58a'
+    yellow: '#d9ba7a'
+    blue: '#d97757'
+    magenta: '#c9a0b4'
+    cyan: '#e8bb9e'
+    white: '#d6d2c8'
+  bright:
+    black: '#706d65'
+    red: '#efb0a6'
+    green: '#c2d2a4'
+    yellow: '#ecd0a0'
+    blue: '#f0a080'
+    magenta: '#dcb8c8'
+    cyan: '#f2d0ba'
+    white: '#faf9f5'

@@ -75,3 +75,254 @@ index 9152d9f..1f0fad1 100644
  }
  
  #[test]
+diff --git a/app/src/terminal/settings.rs b/app/src/terminal/settings.rs
+index 81c398e..be1f5fc 100644
+--- a/app/src/terminal/settings.rs
++++ b/app/src/terminal/settings.rs
+@@ -171,6 +171,16 @@ define_settings_group!(TerminalSettings, settings: [
+         max_table_depth: 0,
+         description: "Controls padding around full-screen terminal applications.",
+     },
++    alt_screen_horizontal_padding_only: AltScreenHorizontalPaddingOnly {
++        type: bool,
++        default: false,
++        supported_platforms: SupportedPlatforms::ALL,
++        sync_to_cloud: SyncToCloud::Globally(RespectUserSyncSetting::Yes),
++        surface: settings::SettingSurfaces::GUI,
++        private: false,
++        toml_path: "appearance.full_screen_apps.horizontal_padding_only",
++        description: "Apply the custom alt-screen padding to the left and right edges only.",
++    },
+     // This field should not be referenced directly to check zero state block visibility -- use
+     // the `should_show_zero_state_block()` getter, which also considers global AI enablement.
+     show_terminal_zero_state_block: ShowTerminalZeroStateBlock {
+diff --git a/app/src/terminal/view.rs b/app/src/terminal/view.rs
+index 7d21834..f6ce29e 100644
+--- a/app/src/terminal/view.rs
++++ b/app/src/terminal/view.rs
+@@ -29732,12 +29732,17 @@ pub fn create_size_info(
+                     !ALT_SCREEN_APPS_THAT_MUST_MATCH_BLOCKLIST_PADDING.contains(cmd.as_str())
+                 }) =>
+         {
++            let vertical_padding = if *TerminalSettings::as_ref(ctx).alt_screen_horizontal_padding_only {
++                Pixels::zero()
++            } else {
++                uniform_padding
++            };
+             SizeInfo::new(
+                 pane_size,
+                 cell_size_px.x().into_pixels(),
+                 cell_size_px.y().into_pixels(),
+                 uniform_padding,
+-                uniform_padding,
++                vertical_padding,
+             )
+         }
+         _ => create_size_info_for_blocklist(
+diff --git a/app/src/terminal/grid_renderer/cell_type.rs b/app/src/terminal/grid_renderer/cell_type.rs
+index 865b1f4..963e310 100644
+--- a/app/src/terminal/grid_renderer/cell_type.rs
++++ b/app/src/terminal/grid_renderer/cell_type.rs
+@@ -138,9 +138,17 @@ impl CellType {
+             || (self.is_secret() && !self.is_find_match())
+             || self.is_hovered_secret()
+         {
+-            if cell.bg == Color::Named(NamedColor::Background) {
+-                // If the background of the cell is the same as the terminal background, treat it as
+-                // an alpha value of 0.
++            // If the background of the cell is the same as the terminal background, treat it as
++            // an alpha value of 0. An explicit RGB equal to the theme background counts too, so
++            // full-screen apps that paint their panels in the theme colour stay translucent.
++            let theme_bg = get_override_color(
++                colors,
++                override_colors,
++                NamedColor::Background.into_color_index(),
++            );
++            if cell.bg == Color::Named(NamedColor::Background)
++                || (bg_color.r == theme_bg.r && bg_color.g == theme_bg.g && bg_color.b == theme_bg.b)
++            {
+                 0
+             } else {
+                 OPAQUE
+diff --git a/app/src/terminal/view/use_agent_footer/mod.rs b/app/src/terminal/view/use_agent_footer/mod.rs
+index afae9e6..3114189 100644
+--- a/app/src/terminal/view/use_agent_footer/mod.rs
++++ b/app/src/terminal/view/use_agent_footer/mod.rs
+@@ -39,8 +39,14 @@ use warpify_footer::{WarpifyFooterView, WarpifyFooterViewEvent};
+ use warpui::r#async::Timer;
+ use warpui::elements::{
+     ChildView, Container, CrossAxisAlignment, Empty, Expanded, Flex, MainAxisSize, ParentElement,
++    Text,
+ };
+ use warpui::keymap::Keystroke;
++use warpui::ui_components::components::{UiComponent, UiComponentStyles};
++use warpui::ui_components::slider::{Slider, SliderStateHandle};
++use warpui::units::IntoPixels;
++use crate::terminal::settings::{AltScreenPaddingMode, TerminalSettings};
++use crate::window_settings::WindowSettings;
+ use warpui::{
+     AppContext, Element, Entity, EntityId, ModelHandle, SingletonEntity, TypedActionView, View,
+     ViewContext, ViewHandle,
+@@ -1141,6 +1147,11 @@ pub struct UseAgentToolbar {
+     // Footer dismissal is terminal pane-scoped, e.g. dismissal hides the footer for this
+     // specific terminal pane for the lifetime of the pane.
+     did_user_dismiss: bool,
++
++    // Pivo: live knobs for full-screen app padding (% of the pane width per side) and window
++    // opacity, drawn at the right of the CLI agent footer.
++    padding_slider: SliderStateHandle,
++    opacity_slider: SliderStateHandle,
+ }
+ 
+ impl UseAgentToolbar {
+@@ -1240,9 +1251,87 @@ impl UseAgentToolbar {
+             warpify_footer_view,
+             terminal_model,
+             did_user_dismiss: false,
++            padding_slider: SliderStateHandle::default(),
++            opacity_slider: SliderStateHandle::default(),
+         }
+     }
+ 
++    /// The pane width in px, for converting the padding slider's percent to pixels.
++    fn pane_width_px(&self) -> f32 {
++        self.terminal_model
++            .lock()
++            .block_list()
++            .size()
++            .pane_width_px()
++            .as_f32()
++            .max(1.)
++    }
++
++    /// Pivo: the padding and opacity sliders, at the right of the CLI agent footer.
++    fn render_pivo_knobs(&self, app: &AppContext) -> Box<dyn Element> {
++        let appearance = Appearance::as_ref(app);
++        let label_color = appearance.theme().foreground().into_solid();
++        let label = |text: &str| {
++            Container::new(
++                Text::new(
++                    text.to_string(),
++                    appearance.ui_font_family(),
++                    appearance.ui_font_size(),
++                )
++                .with_color(label_color)
++                .finish(),
++            )
++            .with_horizontal_padding(4.)
++            .finish()
++        };
++
++        let padding_px = match *TerminalSettings::as_ref(app).alt_screen_padding {
++            AltScreenPaddingMode::Custom { uniform_padding } => uniform_padding.as_f32(),
++            AltScreenPaddingMode::MatchBlocklist => 0.,
++        };
++        let padding_pct = (padding_px / self.pane_width_px() * 100.).clamp(0., 40.);
++        let opacity = *WindowSettings::as_ref(app).background_opacity as f32;
++
++        let slider_style = UiComponentStyles {
++            width: Some(110.),
++            ..Default::default()
++        };
++
++        Flex::row()
++            .with_spacing(2.)
++            .with_cross_axis_alignment(CrossAxisAlignment::Center)
++            .with_child(label(&format!("pad {padding_pct:.0}%")))
++            .with_child(
++                Slider::new(self.padding_slider.clone())
++                    .with_range(0.0..40.)
++                    .with_step(1.)
++                    .with_default_value(padding_pct)
++                    .on_drag(|event_ctx, _app, value| {
++                        event_ctx.dispatch_typed_action(UseAgentToolbarAction::SetPaddingPercent(
++                            value,
++                        ))
++                    })
++                    .with_style(slider_style.clone())
++                    .build()
++                    .finish(),
++            )
++            .with_child(label(&format!("α {opacity:.0}%")))
++            .with_child(
++                Slider::new(self.opacity_slider.clone())
++                    .with_range(10.0..100.)
++                    .with_step(1.)
++                    .with_default_value(opacity)
++                    .on_drag(|event_ctx, _app, value| {
++                        event_ctx
++                            .dispatch_typed_action(UseAgentToolbarAction::SetOpacity(value))
++                    })
++                    .with_style(slider_style)
++                    .build()
++                    .finish(),
++            )
++            .finish()
++    }
++
+     fn handle_agent_input_footer_event(
+         &mut self,
+         event: &AgentInputFooterEvent,
+@@ -1416,8 +1505,16 @@ impl View for UseAgentToolbar {
+             if !cli_agent.supports_cli_agent_footer() {
+                 return Empty::new().finish();
+             }
+-            let mut container = Container::new(ChildView::new(&self.agent_input_footer).finish())
+-                .with_horizontal_padding(*super::PADDING_LEFT);
++            let row = Flex::row()
++                .with_main_axis_size(MainAxisSize::Max)
++                .with_cross_axis_alignment(CrossAxisAlignment::Center)
++                .with_child(
++                    Expanded::new(1., ChildView::new(&self.agent_input_footer).finish()).finish(),
++                )
++                .with_child(self.render_pivo_knobs(app))
++                .finish();
++            let mut container =
++                Container::new(row).with_horizontal_padding(*super::PADDING_LEFT);
+ 
+             // Apply the alt screen background on this outer container so it covers
+             // the horizontal padding area as well, preventing a visible color mismatch
+@@ -1479,13 +1576,42 @@ impl View for UseAgentToolbar {
+ #[derive(Debug, Clone)]
+ pub enum UseAgentToolbarAction {
+     Dismiss { permanently: bool },
++    /// Pivo: padding of full-screen apps, in percent of the pane width per side.
++    SetPaddingPercent(f32),
++    /// Pivo: window background opacity, 10-100.
++    SetOpacity(f32),
+ }
+ 
+ impl TypedActionView for UseAgentToolbar {
+     type Action = UseAgentToolbarAction;
+ 
+     fn handle_action(&mut self, action: &Self::Action, ctx: &mut ViewContext<Self>) {
+-        let UseAgentToolbarAction::Dismiss { permanently } = action;
++        let permanently = match action {
++            UseAgentToolbarAction::SetPaddingPercent(pct) => {
++                let px = (self.pane_width_px() * pct / 100.).round();
++                TerminalSettings::handle(ctx).update(ctx, |terminal_settings, ctx| {
++                    let new_mode = AltScreenPaddingMode::Custom {
++                        uniform_padding: px.into_pixels(),
++                    };
++                    if let Err(e) = terminal_settings.alt_screen_padding.set_value(new_mode, ctx) {
++                        report_error!(e.context("Failed to set alt-screen padding from the footer"));
++                    }
++                });
++                ctx.notify();
++                return;
++            }
++            UseAgentToolbarAction::SetOpacity(value) => {
++                let opacity = value.round().clamp(10., 100.) as u8;
++                WindowSettings::handle(ctx).update(ctx, |window_settings, ctx| {
++                    if let Err(e) = window_settings.background_opacity.set_value(opacity, ctx) {
++                        report_error!(e.context("Failed to set window opacity from the footer"));
++                    }
++                });
++                ctx.notify();
++                return;
++            }
++            UseAgentToolbarAction::Dismiss { permanently } => permanently,
++        };
+         self.did_user_dismiss = true;
+         ctx.emit(UseAgentToolbarEvent::Dismiss);
+ 
