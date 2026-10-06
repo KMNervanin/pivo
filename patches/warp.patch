@@ -97,10 +97,83 @@ index 81c398e..be1f5fc 100644
      // the `should_show_zero_state_block()` getter, which also considers global AI enablement.
      show_terminal_zero_state_block: ShowTerminalZeroStateBlock {
 diff --git a/app/src/terminal/view.rs b/app/src/terminal/view.rs
-index 7d21834..f6ce29e 100644
+index 7d21834..5fa891e 100644
 --- a/app/src/terminal/view.rs
 +++ b/app/src/terminal/view.rs
-@@ -29732,12 +29732,17 @@ pub fn create_size_info(
+@@ -1237,6 +1237,7 @@ impl SizeUpdateBuilder {
+             appearance.monospace_font_family(),
+             appearance.monospace_font_size(),
+             appearance.line_height_ratio(),
++            view.alt_screen_padding_override,
+             ctx,
+         );
+ 
+@@ -2899,6 +2900,8 @@ pub struct TerminalView {
+     cli_subagent_views: HashMap<BlockId, ViewHandle<CLISubagentView>>,
+     cli_subagent_controller: ModelHandle<CLISubagentController>,
+     use_agent_footer: ViewHandle<UseAgentToolbar>,
++    /// Pivo: alt-screen padding override for this pane (set per pane group), px per side.
++    alt_screen_padding_override: Option<f32>,
+ 
+     agent_view_controller: ModelHandle<AgentViewController>,
+     agent_view_back_button: ViewHandle<ActionButton>,
+@@ -4504,6 +4507,7 @@ impl TerminalView {
+             cli_subagent_views: Default::default(),
+             cli_subagent_controller,
+             use_agent_footer: use_agent_button_bar,
++            alt_screen_padding_override: None,
+             agent_view_controller,
+             agent_view_back_button,
+             orchestration_pill_bar,
+@@ -16809,6 +16813,21 @@ impl TerminalView {
+         Appearance::as_ref(ctx)
+     }
+ 
++    /// Pivo: applies a per-pane alt-screen padding (px per side) over the global setting;
++    /// `None` restores the global value.
++    pub fn set_alt_screen_padding_override(&mut self, px: Option<f32>, ctx: &mut ViewContext<Self>) {
++        self.alt_screen_padding_override = px;
++        self.use_agent_footer.update(ctx, |footer, ctx| {
++            footer.set_padding_override(px);
++            ctx.notify();
++        });
++        self.refresh_size(ctx);
++        if self.model.lock().is_alt_screen_active() {
++            self.resize_alt_screen_redundantly(ctx);
++        }
++        ctx.notify();
++    }
++
+     fn refresh_size(&mut self, ctx: &mut ViewContext<Self>) {
+         self.resize_internal(
+             SizeUpdateBuilder::for_refresh(*self.size_info).build(self, ctx),
+@@ -29714,6 +29733,7 @@ pub fn create_size_info(
+     font_family_id: FamilyId,
+     font_size: f32,
+     line_height_ratio: f32,
++    padding_override_px: Option<f32>,
+     ctx: &AppContext,
+ ) -> SizeInfo {
+     let cell_size_px =
+@@ -29723,8 +29743,15 @@ pub fn create_size_info(
+         .active_block()
+         .top_level_command(sessions);
+ 
+-    match *TerminalSettings::as_ref(ctx).alt_screen_padding {
+-        AltScreenPaddingMode::Custom { uniform_padding }
++    // A per-pane override (Pivo) wins over the global custom padding.
++    let custom_padding = match (padding_override_px, *TerminalSettings::as_ref(ctx).alt_screen_padding) {
++        (Some(px), _) => Some(px.into_pixels()),
++        (None, AltScreenPaddingMode::Custom { uniform_padding }) => Some(uniform_padding),
++        (None, AltScreenPaddingMode::MatchBlocklist) => None,
++    };
++
++    match custom_padding {
++        Some(uniform_padding)
+             if model.is_alt_screen_active()
+                 // If we don't know what the top-level command is,
+                 // it's not denylisted so we use the custom padding.
+@@ -29732,12 +29759,17 @@ pub fn create_size_info(
                      !ALT_SCREEN_APPS_THAT_MUST_MATCH_BLOCKLIST_PADDING.contains(cmd.as_str())
                  }) =>
          {
@@ -145,10 +218,10 @@ index 865b1f4..963e310 100644
              } else {
                  OPAQUE
 diff --git a/app/src/terminal/view/use_agent_footer/mod.rs b/app/src/terminal/view/use_agent_footer/mod.rs
-index afae9e6..3114189 100644
+index afae9e6..0947591 100644
 --- a/app/src/terminal/view/use_agent_footer/mod.rs
 +++ b/app/src/terminal/view/use_agent_footer/mod.rs
-@@ -39,8 +39,14 @@ use warpify_footer::{WarpifyFooterView, WarpifyFooterViewEvent};
+@@ -39,8 +39,15 @@ use warpify_footer::{WarpifyFooterView, WarpifyFooterViewEvent};
  use warpui::r#async::Timer;
  use warpui::elements::{
      ChildView, Container, CrossAxisAlignment, Empty, Expanded, Flex, MainAxisSize, ParentElement,
@@ -160,10 +233,11 @@ index afae9e6..3114189 100644
 +use warpui::units::IntoPixels;
 +use crate::terminal::settings::{AltScreenPaddingMode, TerminalSettings};
 +use crate::window_settings::WindowSettings;
++use crate::pane_group::PaneGroupAction;
  use warpui::{
      AppContext, Element, Entity, EntityId, ModelHandle, SingletonEntity, TypedActionView, View,
      ViewContext, ViewHandle,
-@@ -1141,6 +1147,11 @@ pub struct UseAgentToolbar {
+@@ -1141,6 +1148,14 @@ pub struct UseAgentToolbar {
      // Footer dismissal is terminal pane-scoped, e.g. dismissal hides the footer for this
      // specific terminal pane for the lifetime of the pane.
      did_user_dismiss: bool,
@@ -172,18 +246,49 @@ index afae9e6..3114189 100644
 +    // opacity, drawn at the right of the CLI agent footer.
 +    padding_slider: SliderStateHandle,
 +    opacity_slider: SliderStateHandle,
++    /// Pivo: this pane's alt-screen padding override (px per side), mirrored from the view.
++    padding_override_px: Option<f32>,
++    reset_padding_button: ViewHandle<ActionButton>,
  }
  
  impl UseAgentToolbar {
-@@ -1240,9 +1251,87 @@ impl UseAgentToolbar {
+@@ -1202,6 +1217,19 @@ impl UseAgentToolbar {
+             .with_size(button_size)
+         });
+ 
++        let reset_padding_button = ctx.add_typed_action_view(|_| {
++            ActionButton::new(
++                "↺",
++                AgentFooterButtonTheme::new(Some(terminal_model.clone())),
++            )
++            .with_tooltip("Padding: back to the global setting")
++            .with_tooltip_alignment(TooltipAlignment::Left)
++            .on_click(|ctx| {
++                ctx.dispatch_typed_action(PaneGroupAction::SetAltScreenPaddingPx(None));
++            })
++            .with_size(button_size)
++        });
++
+         // Subscribe to agent input footer events to forward CLI-relevant ones.
+         ctx.subscribe_to_view(&agent_input_footer, |me, _, event, ctx| {
+             me.handle_agent_input_footer_event(event, ctx);
+@@ -1240,9 +1268,105 @@ impl UseAgentToolbar {
              warpify_footer_view,
              terminal_model,
              did_user_dismiss: false,
 +            padding_slider: SliderStateHandle::default(),
 +            opacity_slider: SliderStateHandle::default(),
++            padding_override_px: None,
++            reset_padding_button,
          }
      }
  
++    /// Pivo: the pane's padding override changed (from its pane group); re-seat the slider.
++    pub fn set_padding_override(&mut self, px: Option<f32>) {
++        self.padding_override_px = px;
++        self.padding_slider.reset_offset();
++    }
++
 +    /// The pane width in px, for converting the padding slider's percent to pixels.
 +    fn pane_width_px(&self) -> f32 {
 +        self.terminal_model
@@ -213,11 +318,14 @@ index afae9e6..3114189 100644
 +            .finish()
 +        };
 +
-+        let padding_px = match *TerminalSettings::as_ref(app).alt_screen_padding {
++        let global_px = match *TerminalSettings::as_ref(app).alt_screen_padding {
 +            AltScreenPaddingMode::Custom { uniform_padding } => uniform_padding.as_f32(),
 +            AltScreenPaddingMode::MatchBlocklist => 0.,
 +        };
-+        let padding_pct = (padding_px / self.pane_width_px() * 100.).clamp(0., 40.);
++        let padding_px = self.padding_override_px.unwrap_or(global_px);
++        let pane_width = self.pane_width_px();
++        let padding_pct = (padding_px / pane_width * 100.).clamp(0., 40.);
++        let is_overridden = self.padding_override_px.is_some();
 +        let opacity = *WindowSettings::as_ref(app).background_opacity as f32;
 +
 +        let slider_style = UiComponentStyles {
@@ -228,21 +336,28 @@ index afae9e6..3114189 100644
 +        Flex::row()
 +            .with_spacing(2.)
 +            .with_cross_axis_alignment(CrossAxisAlignment::Center)
-+            .with_child(label(&format!("pad {padding_pct:.0}%")))
++            .with_child(label(&format!(
++                "pad {padding_pct:.0}%{}",
++                if is_overridden { "*" } else { "" }
++            )))
 +            .with_child(
 +                Slider::new(self.padding_slider.clone())
 +                    .with_range(0.0..40.)
 +                    .with_step(1.)
 +                    .with_default_value(padding_pct)
-+                    .on_drag(|event_ctx, _app, value| {
-+                        event_ctx.dispatch_typed_action(UseAgentToolbarAction::SetPaddingPercent(
-+                            value,
++                    // Dispatched up the responder chain: the pane group that holds this
++                    // footer applies it to every terminal pane it contains.
++                    .on_drag(move |event_ctx, _app, value| {
++                        let px = (pane_width * value / 100.).round();
++                        event_ctx.dispatch_typed_action(PaneGroupAction::SetAltScreenPaddingPx(
++                            Some(px),
 +                        ))
 +                    })
 +                    .with_style(slider_style.clone())
 +                    .build()
 +                    .finish(),
 +            )
++            .with_child(ChildView::new(&self.reset_padding_button).finish())
 +            .with_child(label(&format!("α {opacity:.0}%")))
 +            .with_child(
 +                Slider::new(self.opacity_slider.clone())
@@ -263,7 +378,7 @@ index afae9e6..3114189 100644
      fn handle_agent_input_footer_event(
          &mut self,
          event: &AgentInputFooterEvent,
-@@ -1416,8 +1505,16 @@ impl View for UseAgentToolbar {
+@@ -1416,8 +1540,16 @@ impl View for UseAgentToolbar {
              if !cli_agent.supports_cli_agent_footer() {
                  return Empty::new().finish();
              }
@@ -282,12 +397,10 @@ index afae9e6..3114189 100644
  
              // Apply the alt screen background on this outer container so it covers
              // the horizontal padding area as well, preventing a visible color mismatch
-@@ -1479,13 +1576,42 @@ impl View for UseAgentToolbar {
+@@ -1479,13 +1611,27 @@ impl View for UseAgentToolbar {
  #[derive(Debug, Clone)]
  pub enum UseAgentToolbarAction {
      Dismiss { permanently: bool },
-+    /// Pivo: padding of full-screen apps, in percent of the pane width per side.
-+    SetPaddingPercent(f32),
 +    /// Pivo: window background opacity, 10-100.
 +    SetOpacity(f32),
  }
@@ -298,19 +411,6 @@ index afae9e6..3114189 100644
      fn handle_action(&mut self, action: &Self::Action, ctx: &mut ViewContext<Self>) {
 -        let UseAgentToolbarAction::Dismiss { permanently } = action;
 +        let permanently = match action {
-+            UseAgentToolbarAction::SetPaddingPercent(pct) => {
-+                let px = (self.pane_width_px() * pct / 100.).round();
-+                TerminalSettings::handle(ctx).update(ctx, |terminal_settings, ctx| {
-+                    let new_mode = AltScreenPaddingMode::Custom {
-+                        uniform_padding: px.into_pixels(),
-+                    };
-+                    if let Err(e) = terminal_settings.alt_screen_padding.set_value(new_mode, ctx) {
-+                        report_error!(e.context("Failed to set alt-screen padding from the footer"));
-+                    }
-+                });
-+                ctx.notify();
-+                return;
-+            }
 +            UseAgentToolbarAction::SetOpacity(value) => {
 +                let opacity = value.round().clamp(10., 100.) as u8;
 +                WindowSettings::handle(ctx).update(ctx, |window_settings, ctx| {

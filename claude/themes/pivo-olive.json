@@ -1,6 +1,6 @@
 {
   "name": "Pivo Olive",
-  "base": "dark-ansi",
+  "base": "dark",
   "overrides": {
     "claude": "#c3b571",
     "claudeShimmer": "#e6d585",
@@ -21,8 +21,8 @@
     "error": "#dc8b83",
     "warning": "#c3b571",
     "warningShimmer": "#e6d585",
-    "diffAdded": "#2f4a30",
-    "diffRemoved": "#5a2f33",
+    "diffAdded": "#24482a",
+    "diffRemoved": "#5f262a",
     "userMessageBackground": "#24251f",
     "userMessageBackgroundHover": "#24251f",
     "bashMessageBackgroundColor": "#2d3027",
@@ -30,9 +30,9 @@
     "briefLabelYou": "#aba887",
     "briefLabelClaude": "#c3b571",
     "composerSidebarBackground": "#24251f",
-    "diffAddedDimmed": "#3a4a3b",
-    "diffRemovedDimmed": "#4d3a3d",
-    "diffAddedWord": "#3f8a52",
-    "diffRemovedWord": "#a35063"
+    "diffAddedDimmed": "#2e3d30",
+    "diffRemovedDimmed": "#4b3236",
+    "diffAddedWord": "#3c9a52",
+    "diffRemovedWord": "#b34d53"
   }
 }

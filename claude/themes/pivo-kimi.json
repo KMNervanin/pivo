@@ -1,6 +1,6 @@
 {
   "name": "Pivo Kimi",
-  "base": "dark-ansi",
+  "base": "dark",
   "overrides": {
     "claude": "#4FA8FF",
     "claudeShimmer": "#5dc6ff",
@@ -21,8 +21,8 @@
     "error": "#E85454",
     "warning": "#E8A838",
     "warningShimmer": "#ffc642",
-    "diffAdded": "#1e4a30",
-    "diffRemoved": "#4a2328",
+    "diffAdded": "#1f4d2e",
+    "diffRemoved": "#5e2226",
     "userMessageBackground": "#16181C",
     "userMessageBackgroundHover": "#16181C",
     "bashMessageBackgroundColor": "#1E2127",
@@ -30,9 +30,9 @@
     "briefLabelYou": "#E8A838",
     "briefLabelClaude": "#4FA8FF",
     "composerSidebarBackground": "#16181C",
-    "diffAddedDimmed": "#2d3f33",
-    "diffRemovedDimmed": "#3d2d30",
-    "diffAddedWord": "#2fa060",
-    "diffRemovedWord": "#c0505a"
+    "diffAddedDimmed": "#2a3d30",
+    "diffRemovedDimmed": "#4a3034",
+    "diffAddedWord": "#35a862",
+    "diffRemovedWord": "#b84a52"
   }
 }

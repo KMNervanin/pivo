@@ -1,6 +1,6 @@
 {
   "name": "Pivo Amber",
-  "base": "dark-ansi",
+  "base": "dark",
   "overrides": {
     "claude": "#d7b566",
     "claudeShimmer": "#fdd578",
@@ -21,8 +21,8 @@
     "error": "#dc8b83",
     "warning": "#d7b566",
     "warningShimmer": "#fdd578",
-    "diffAdded": "#2f4a30",
-    "diffRemoved": "#5a2f33",
+    "diffAdded": "#24482a",
+    "diffRemoved": "#5f262a",
     "userMessageBackground": "#24221f",
     "userMessageBackgroundHover": "#24221f",
     "bashMessageBackgroundColor": "#2e2b26",
@@ -30,9 +30,9 @@
     "briefLabelYou": "#bca47b",
     "briefLabelClaude": "#d7b566",
     "composerSidebarBackground": "#24221f",
-    "diffAddedDimmed": "#3a4a3b",
-    "diffRemovedDimmed": "#4d3a3d",
-    "diffAddedWord": "#3f8a52",
-    "diffRemovedWord": "#a35063"
+    "diffAddedDimmed": "#2e3d30",
+    "diffRemovedDimmed": "#4b3236",
+    "diffAddedWord": "#3c9a52",
+    "diffRemovedWord": "#b34d53"
   }
 }

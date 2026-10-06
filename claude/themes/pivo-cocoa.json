@@ -1,6 +1,6 @@
 {
   "name": "Pivo Cocoa",
-  "base": "dark-ansi",
+  "base": "dark",
   "overrides": {
     "claude": "#c6a582",
     "claudeShimmer": "#e9c299",
@@ -21,8 +21,8 @@
     "error": "#dc8b83",
     "warning": "#c8ad80",
     "warningShimmer": "#eccc97",
-    "diffAdded": "#2f4a30",
-    "diffRemoved": "#5a2f33",
+    "diffAdded": "#24482a",
+    "diffRemoved": "#5f262a",
     "userMessageBackground": "#29231f",
     "userMessageBackgroundHover": "#29231f",
     "bashMessageBackgroundColor": "#332b25",
@@ -30,9 +30,9 @@
     "briefLabelYou": "#ad9a85",
     "briefLabelClaude": "#c6a582",
     "composerSidebarBackground": "#29231f",
-    "diffAddedDimmed": "#3a4a3b",
-    "diffRemovedDimmed": "#4d3a3d",
-    "diffAddedWord": "#3f8a52",
-    "diffRemovedWord": "#a35063"
+    "diffAddedDimmed": "#2e3d30",
+    "diffRemovedDimmed": "#4b3236",
+    "diffAddedWord": "#3c9a52",
+    "diffRemovedWord": "#b34d53"
   }
 }

@@ -1,6 +1,6 @@
 {
   "name": "Pivo Claude",
-  "base": "dark-ansi",
+  "base": "dark",
   "overrides": {
     "claude": "#d97757",
     "claudeShimmer": "#ff8c66",
@@ -21,8 +21,8 @@
     "error": "#dc8b83",
     "warning": "#d9ba7a",
     "warningShimmer": "#ffdb8f",
-    "diffAdded": "#2f4a30",
-    "diffRemoved": "#5a2f33",
+    "diffAdded": "#24482a",
+    "diffRemoved": "#5f262a",
     "userMessageBackground": "#262624",
     "userMessageBackgroundHover": "#262624",
     "bashMessageBackgroundColor": "#30302e",
@@ -30,9 +30,9 @@
     "briefLabelYou": "#91b5cf",
     "briefLabelClaude": "#d97757",
     "composerSidebarBackground": "#262624",
-    "diffAddedDimmed": "#3a4a3b",
-    "diffRemovedDimmed": "#4d3a3d",
-    "diffAddedWord": "#3f8a52",
-    "diffRemovedWord": "#a35063"
+    "diffAddedDimmed": "#2e3d30",
+    "diffRemovedDimmed": "#4b3236",
+    "diffAddedWord": "#3c9a52",
+    "diffRemovedWord": "#b34d53"
   }
 }

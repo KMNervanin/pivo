@@ -173,7 +173,7 @@ export const register: Register = on => {
   // engine frames (notifications, peers, collapsed rows) keep its drawing.
   on('ui.render', { component: 'UserMessage' }, async ($, e, next) => {
     const p = e.props as { text?: string; origin?: { kind?: string }; task?: unknown; from?: unknown; isExpanded?: boolean }
-    const isPlain = typeof p.text === 'string' && p.task === undefined && p.from === undefined && p.isExpanded !== false
+    const isPlain = typeof p.text === 'string' && p.task === undefined && p.from === undefined
       && (p.origin?.kind === undefined || p.origin.kind === 'composer' || p.origin.kind === 'unclassified')
     if (!isPlain) return next(e)
     const { Box, Text } = $.ui.resolve(e)

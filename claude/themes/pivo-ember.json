@@ -1,6 +1,6 @@
 {
   "name": "Pivo Ember",
-  "base": "dark-ansi",
+  "base": "dark",
   "overrides": {
     "claude": "#d58c64",
     "claudeShimmer": "#fba576",
@@ -21,8 +21,8 @@
     "error": "#dc8b83",
     "warning": "#cfa975",
     "warningShimmer": "#f4c78a",
-    "diffAdded": "#2f4a30",
-    "diffRemoved": "#5a2f33",
+    "diffAdded": "#24482a",
+    "diffRemoved": "#5f262a",
     "userMessageBackground": "#25211f",
     "userMessageBackgroundHover": "#25211f",
     "bashMessageBackgroundColor": "#302824",
@@ -30,9 +30,9 @@
     "briefLabelYou": "#b59a84",
     "briefLabelClaude": "#d58c64",
     "composerSidebarBackground": "#25211f",
-    "diffAddedDimmed": "#3a4a3b",
-    "diffRemovedDimmed": "#4d3a3d",
-    "diffAddedWord": "#3f8a52",
-    "diffRemovedWord": "#a35063"
+    "diffAddedDimmed": "#2e3d30",
+    "diffRemovedDimmed": "#4b3236",
+    "diffAddedWord": "#3c9a52",
+    "diffRemovedWord": "#b34d53"
   }
 }
