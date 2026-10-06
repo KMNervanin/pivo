@@ -4,6 +4,6 @@ export type Todo = { content: string; status: string }
 
 declare module 'claude-code' {
   interface PluginState {
-    pivo: { side: Side; todos: Todo[]; tick: number; tools: ToolMode }
+    pivo: { side: Side; todos: Todo[]; tick: number; tools: ToolMode; accent: boolean }
   }
 }

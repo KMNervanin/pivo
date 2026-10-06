@@ -9,6 +9,7 @@ const side = atom({ plugin: 'pivo', key: 'side' } as const, { isOpen: false } as
 const todos = atom({ plugin: 'pivo', key: 'todos' } as const, [] as Todo[])
 const tick = atom({ plugin: 'pivo', key: 'tick' } as const, 0)
 const tools = atom({ plugin: 'pivo', key: 'tools' } as const, 'all' as ToolMode)
+const accent = atom({ plugin: 'pivo', key: 'accent' } as const, false)
 
 // Routine calls: reads, searches, listings, bookkeeping. Everything else (edits, shell,
 // questions, agents, MCP) is important; an errored call is always shown.
@@ -82,6 +83,13 @@ export const register: Register = on => {
     const stored = await $.store.get('tools')
     if (stored === 'all' || stored === 'important' || stored === 'none') await update($, tools, () => stored)
     await $.command.register({
+      name: 'accent',
+      description: 'Pivo: your messages in the theme accent colour on/off (always bold)',
+      argumentHint: '[on | off]',
+      immediate: true,
+    })
+    if ((await $.store.get('accent')) === true) await update($, accent, () => true)
+    await $.command.register({
       name: 'sidebar',
       description: 'Pivo: show/hide the status sidebar',
       immediate: true,
@@ -122,6 +130,17 @@ export const register: Register = on => {
     if (shown) return next(e)
     const { Box } = $.ui.resolve(e)
     return <Box />
+  })
+
+  on('command.run', { command: 'accent' }, async ($, e) => {
+    const arg = e.args.trim().toLowerCase()
+    const current = await read($, accent)
+    const next = arg === 'on' ? true : arg === 'off' ? false : !current
+    await update($, accent, () => next)
+    await $.store.set('accent', next)
+    $.ui.invalidate('ui.render')
+    $.ui.toast(next ? 'Твои сообщения: жирные, цвет темы' : 'Твои сообщения: жирные, обычный цвет')
+    return {}
   })
 
   on('command.run', { command: 'sidebar' }, async ($, e) => {
@@ -177,9 +196,12 @@ export const register: Register = on => {
       && (p.origin?.kind === undefined || p.origin.kind === 'composer' || p.origin.kind === 'unclassified')
     if (!isPlain) return next(e)
     const { Box, Text } = $.ui.resolve(e)
+    const isAccent = await read($, accent)
     return (
       <Box paddingX={1}>
-        <Text bold backgroundColor="userMessageBackground" wrap="wrap">{'> ' + p.text}</Text>
+        <Text bold color={isAccent ? 'claude' : undefined} backgroundColor="userMessageBackground" wrap="wrap">
+          {'> ' + p.text}
+        </Text>
       </Box>
     )
   })
