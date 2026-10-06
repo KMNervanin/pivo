@@ -140,9 +140,25 @@ def install_themes():
     print("Themes installed; active theme unchanged.")
 
 
+def install_claude():
+    """Install the Claude Code themes and the pivo mod; print the one settings line left to add."""
+    themes = Path.home() / ".claude/themes"
+    themes.mkdir(parents=True, exist_ok=True)
+    for file in (ROOT / "claude/themes").glob("*.json"):
+        shutil.copy2(file, themes / file.name)
+    mod = Path.home() / ".claude/mods/pivo"
+    if mod.exists():
+        shutil.rmtree(mod)
+    shutil.copytree(ROOT / "claude/mod/pivo", mod)
+    print(f"Themes installed to {themes} (pick one in /theme).")
+    print(f"Mod installed to {mod}. Add to ~/.claude/settings.json:")
+    print('  "env": { "CLAUDE_CODE_PLUGIN_DIRS": "~/.claude/mods/pivo" }')
+    print("or start with: claude --plugin-dir ~/.claude/mods/pivo")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=["prepare", "build", "test", "install-pivo", "install-warp", "install-themes"])
+    parser.add_argument("action", choices=["prepare", "build", "test", "install-pivo", "install-warp", "install-themes", "install-claude"])
     parser.add_argument("component", choices=["opencode", "warp"], nargs="?", default="opencode")
     parser.add_argument("--source", type=Path, help="Use an existing patched development checkout")
     args = parser.parse_args()
@@ -150,6 +166,8 @@ def main():
         return install_pivo()
     if args.action == "install-warp":
         return install_warp()
+    if args.action == "install-claude":
+        return install_claude()
     if args.action == "install-themes":
         return install_themes()
     source = args.source.resolve() if args.source else prepare(args.component)

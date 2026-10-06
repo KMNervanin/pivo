@@ -173,6 +173,35 @@ windows:
 
 После установки приложения: `open 'warposs://launch/pivo'`.
 
+## Claude Code — темы и мод
+
+Claude Code 2.1.29x читает custom-темы из `~/.claude/themes/*.json` и грузит плагины с
+function hooks из каталогов в `CLAUDE_CODE_PLUGIN_DIRS`. Установка:
+
+```sh
+python3 scripts/build.py install-claude
+```
+
+Скрипт копирует семь тем (`pivo-claude`, `claude-pivo-orig`, `pivo-amber`, `pivo-ember`,
+`pivo-cocoa`, `pivo-olive`, `pivo-kimi`) и мод в `~/.claude/mods/pivo`, затем печатает
+одну строку для `~/.claude/settings.json`:
+
+```json
+"env": { "CLAUDE_CODE_PLUGIN_DIRS": "~/.claude/mods/pivo" }
+```
+
+После перезапуска Claude Code: тема выбирается в `/theme`; `/sidebar` докует правую панель
+(модель, время сессии, контекст, стоимость, лимиты по местному времени, todo, список MCP);
+`/tool` переключает показ вызовов инструментов — все, только важные (правки, shell, вопросы,
+агенты, MCP, ошибки) или скрытые; `/accent` красит твои сообщения в цвет темы, жирность у них
+всегда. Темы используют truecolor-базу `dark`: в ANSI-базе движок квантует цвета в 16 цветов
+терминала и приглушённые дифы невозможны. Фон панелей и твоих сообщений равен фону
+Warp-темы, поэтому в Warp Pivo они прозрачные.
+
+Warp-настройки для Claude Code и других full-screen приложений живут в
+`appearance.full_screen_apps`; `scripts/warpctl pad 200`, `warpctl sides on`, `warpctl opacity 60`
+правят их из терминала, а ползунки в нижней панели — мышью, отдельно для каждой группы панелей.
+
 ## Разработка
 
 `patches/opencode.patch` содержит все изменения и новые тесты; `patches/warp.patch`
